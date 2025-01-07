@@ -1,2 +1,3 @@
-# Annabella_Bregazzi
-repo for bcb420 for Annabella Bregazzi
+# Annabella Bregazzi
+
+See my wiki [here](https://github.com/bcb420-2025/Annabella_Bregazzi/wiki) !
