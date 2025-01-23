@@ -1,0 +1,97 @@
+---
+title: "Assignment 1"
+subtitle: "Initial dataset processing"
+author: "Annabella Bregazzi"
+date: "`r Sys.Date()`"
+output: 
+  html_notebook:
+    toc: true
+bibliography: a1_references.bib
+csl: biomed-central.csl
+---
+
+# Acquiring data
+
+## Selecting the dataset
+
+The dataset I have selected is RNASeq of the transcriptome of normal and cancer breast tissue [@song2024multi] retrieved from [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE268662).
+
+The characteristics of this dataset are...
+
+## Downloading the dataset
+
+To download the dataset computationally, I will be using [GEOquery](https://bioconductor.org/packages/release/bioc/html/GEOquery.html) which has been installed via the Dockerfile.
+
+```{r, message=FALSE}
+library(GEOquery)
+```
+
+I can download the series via the GEO accession ID. For optimizing my CPU resources, `getGEO` uses locally cached versions where found to reduce unnecessary duplications of data.
+
+```{r}
+gse <- getGEO("GSE268662",GSEMatrix=FALSE)
+```
+
+To check the data downloaded correctly, I can view the metadata as shown.
+
+```{r}
+head(Meta(gse))
+```
+
+Everything looks correct since the metadata of my downloaded data matches the associated information on [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE268662), and the [publication](https://www.cell.com/iscience/fulltext/S2589-0042(24)01907-2?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS2589004224019072%3Fshowall%3Dtrue).
+
+```{r}
+names(GSMList(gse))
+```
+
+Similarly, all 9 samples are present.
+
+To retrieve the actual data itself (and not just the series information), I can run the following command.
+
+```{r}
+gse_mat <- getGEO("GSE268662",GSEMatrix=TRUE)
+```
+
+# Processing
+
+## Assessing
+
+Looking at what we are working with,
+
+```{r}
+show(gse_mat)
+```
+
+We can see we have an `ExpressionSet` object with `9 samples`. 
+
+For each sample, we have the following column names.
+
+```{r}
+names(pData(phenoData(gse_mat[[1]])))
+```
+
+So, selecting specified columns, 
+
+```{r}
+show(pData(phenoData(gse_mat[[1]]))[,c(1,8)])
+```
+
+We have `5` tumour tissue samples, and `4` normal tissue samples. This is a reasonable split for analysis.
+
+
+
+## Mapping
+
+## Cleaning
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+## Normalization
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+# Interpretation
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+# Bibliography
