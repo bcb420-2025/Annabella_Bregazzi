@@ -12,44 +12,107 @@ csl: biomed-central.csl
 
 # Acquiring data
 
-## Selecting the dataset
+## Introduction
 
-The dataset I have selected is RNASeq of the transcriptome of normal and cancer breast tissue [@song2024multi] retrieved from [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE268662).
+The dataset I have selected contains scRNA-Seq of 26 primary pre-treatment tumours, including 11 ER+, 5 HER2+ and 10 TNBCs [@wu2021single] retrieved from [GEO with accession GSE176078](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176078) and [associated publication](https://pmc.ncbi.nlm.nih.gov/articles/PMC9044823/).
 
-The characteristics of this dataset are...
+```{r}
+geo_id <- "GSE176078"
+```
 
-## Downloading the dataset
+## Download
 
-To download the dataset computationally, I will be using [GEOquery](https://bioconductor.org/packages/release/bioc/html/GEOquery.html) which has been installed via the Dockerfile.
+To download the dataset computationally, I used [GEOquery](https://bioconductor.org/packages/release/bioc/html/GEOquery.html) which has been installed via the Dockerfile.
 
 ```{r, message=FALSE}
 library(GEOquery)
 ```
 
-I can download the series via the GEO accession ID. For optimizing my CPU resources, `getGEO` uses locally cached versions where found to reduce unnecessary duplications of data.
+For optimizing my CPU resource, I created a `/data` folder for all downloads within this assignment and have a function to compartmentalize all functionality regarding these stored files.
 
 ```{r}
-gse <- getGEO("GSE268662",GSEMatrix=FALSE)
+datapath <- file.path(getwd(), "data", geo_id)
+samplepath <- file.path(datapath, "samples")
+
+download_if <- function(filenames, idx) {
+  filename <- filenames$fname[idx]
+  filepath <- file.path(datapath, filename)
+  if (!file.exists(filepath)) {
+    file = getGEOSuppFiles(geo_id,
+                           filter_regex = filename,
+                           baseDir = file.path(getwd(), "data"), 
+                           fetch_files = TRUE)
+    if (!file) return(NULL)
+    if (idx == 1) {
+      # untar to samples/
+      untar(filepath, exdir=samplepath)
+      sampletars <- list.files(samplepath,
+                               pattern="(.tar.gz)$", 
+                               full.names=TRUE)
+      # unzip all sample tars
+      for (i in 1:length(sampletars)) {
+        untar(sampletars[i], exdir=samplepath)
+      }
+      return(samplepath)
+    } else {
+      untar(filepath, exdir=datapath)
+      return(datapath)
+    }
+  }
+  return(filepath)
+}
 ```
 
-To check the data downloaded correctly, I can view the metadata as shown.
+However, it is important to note that `GEOquery` has functionality whereby it caches downloaded objects to `tmp/` and will not redownload files if you have already downloaded them in this current session. For prolonged existence of files beyond this session, `data/` comes in.
 
-```{r}
-head(Meta(gse))
+Knowing this, I downloaded the series via the GEO accession ID. 
+
+```{r, message=FALSE}
+gse <- getGEO(geo_id, GSEMatrix=FALSE)
 ```
 
-Everything looks correct since the metadata of my downloaded data matches the associated information on [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE268662), and the [publication](https://www.cell.com/iscience/fulltext/S2589-0042(24)01907-2?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS2589004224019072%3Fshowall%3Dtrue).
+The platform information for this dataset can be retrieved as follows (notably there is only one GPL for this dataset).
 
-```{r}
-names(GSMList(gse))
+```{r, message=False}
+gpl <- names(gse@gpls)
+gpl_info <- Meta(getGEO(gpl))
 ```
 
-Similarly, all 9 samples are present.
+The platform information for this particular dataset is as described.
 
-To retrieve the actual data itself (and not just the series information), I can run the following command.
+```r
+Platform title : `r gpl_info$title`
+Submission date : `r gpl_info$submission_date`
+Last update date : `r gpl_info$last_update_date`
+Organisms : `r gpl_info$organism`
+Number of GEO datasets that use this technology : `r length(gpl_info$series_id)`
+Number of GEO samples that use this technology : `r length(gpl_info$sample_id)`
+```
+
+When it comes to the supplementary files housing the raw data counts, these are retrieved by the following commands.
 
 ```{r}
-gse_mat <- getGEO("GSE268662",GSEMatrix=TRUE)
+filenames <- getGEOSuppFiles(geo_id,
+                             fetch_files = FALSE)
+```
+
+Now, the responsibility to check if our files have been previously downloaded falls to our hands.
+
+```{r, message=FALSE}
+raw_tar <- download_if(filenames, 1)
+sc_rna_seq <- download_if(filenames, 2)
+raw_counts <- download_if(filenames, 3)
+```
+
+The datasets are now downloaded in `data/` with specific sample folders within `data/samples/`.
+
+```{r}
+s <- Matrix::readMM(file.path(samplepath, "CID3586", "count_matrix_sparse.mtx"))
+dim(s)
+```
+```{r}
+meta <- read.csv(file.path(samplepath, "CID3586", "metadata.csv"))
+dim(meta)
 ```
 
 # Processing
@@ -58,27 +121,50 @@ gse_mat <- getGEO("GSE268662",GSEMatrix=TRUE)
 
 Looking at what we are working with,
 
-```{r}
+```r
 show(gse_mat)
 ```
 
-We can see we have an `ExpressionSet` object with `9 samples`. 
+We have an `ExpressionSet` object with `26 samples`. 
 
-For each sample, we have the following column names.
+For each sample, we can see the column names using the following command.
 
-```{r}
+```r
 names(pData(phenoData(gse_mat[[1]])))
 ```
 
-So, selecting specified columns, 
+Selecting specified columns, we can see the subtypes for each sample (our features/conditions).
 
 ```{r}
-show(pData(phenoData(gse_mat[[1]]))[,c(1,8)])
+show(pData(phenoData(gse_mat[[1]]))[,c(1,37)])
 ```
 
-We have `5` tumour tissue samples, and `4` normal tissue samples. This is a reasonable split for analysis.
+The following code generates a data frame for us to look at the summary statistics of the subtype counts.
 
+```{r}
+raw_subtypes <- pData(phenoData(gse_mat[[1]]))[,c(37)]
 
+her2 = length(which(raw_subtypes == "HER2+"))
+her2er = length(which(raw_subtypes == "HER2+/ER+"))
+tnbc = length(which(raw_subtypes == "TNBC"))
+er = length(which(raw_subtypes == "ER+"))
+total = sum(her2, her2er, tnbc, er)
+
+subtype_df = data.frame(c(her2, her2er, tnbc, er, total), 
+                        row.names = c("HER2+", "HER2+/ER+", "TNBC", "ER+", "Total"))
+colnames(subtype_df) = "Counts"
+subtype_df$Percentages = subtype_df$Counts * 100 / total
+colnames(subtype_df) = c("Counts", "Percentages")
+subtype_df
+```
+
+As mentioned, there are 26 samples, encompassed by `HER2+`, `HER2+/ER+`, `TNBC`, and `ER+`. The overlap of features will be interesting, however it is only 2 of 26, so will not make a majority of the data, and I may choose to ignore this case if it gets to that point for me.
+
+As for the actual raw count information, downloading the sample files is done as shown.
+
+```{r, message=False}
+
+```
 
 ## Mapping
 

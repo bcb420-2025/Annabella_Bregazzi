@@ -11,7 +11,7 @@
 
 <meta name="author" content="Annabella Bregazzi" />
 
-<meta name="date" content="2025-01-23" />
+<meta name="date" content="2025-02-05" />
 
 <title>Assignment 1</title>
 
@@ -1773,7 +1773,7 @@ display: none;
 <h1 class="title toc-ignore">Assignment 1</h1>
 <h3 class="subtitle">Initial dataset processing</h3>
 <h4 class="author">Annabella Bregazzi</h4>
-<h4 class="date">2025-01-23</h4>
+<h4 class="date">2025-02-05</h4>
 
 </div>
 
@@ -1781,8 +1781,8 @@ display: none;
 <ul>
 <li><a href="#acquiring-data" id="toc-acquiring-data">Acquiring data</a>
 <ul>
-<li><a href="#selecting-the-dataset" id="toc-selecting-the-dataset">Selecting the dataset</a></li>
-<li><a href="#downloading-the-dataset" id="toc-downloading-the-dataset">Downloading the dataset</a></li>
+<li><a href="#introduction" id="toc-introduction">Introduction</a></li>
+<li><a href="#download" id="toc-download">Download</a></li>
 </ul></li>
 <li><a href="#processing" id="toc-processing">Processing</a>
 <ul>
@@ -1799,16 +1799,25 @@ display: none;
 <!-- rnb-text-begin -->
 <div id="acquiring-data" class="section level1">
 <h1>Acquiring data</h1>
-<div id="selecting-the-dataset" class="section level2">
-<h2>Selecting the dataset</h2>
-<p>The dataset I have selected is RNASeq of the transcriptome of normal
-and cancer breast tissue <span class="citation">[1]</span> retrieved
-from <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE268662">GEO</a>.</p>
-<p>The characteristics of this dataset are…</p>
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>The dataset I have selected contains scRNA-Seq of 26 primary
+pre-treatment tumours, including 11 ER+, 5 HER2+ and 10 TNBCs <span class="citation">[1]</span> retrieved from <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176078">GEO
+with accession GSE176078</a> and <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9044823/">associated
+publication</a>.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVaMlZ2WDJsa0lEd3RJRndpUjFORk1UYzJNRGM0WENKY2JtQmdZQ0o5IC0tPlxuXG5gYGByXG5nZW9faWQgPC0gXCJHU0UxNzYwNzhcIlxuYGBgXG5cbjwhLS0gcm5iLXNvdXJjZS1lbmQgLS0+XG4ifQ== -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ2VvX2lkIDwtIFwiR1NFMTc2MDc4XCJcbmBgYCJ9 -->
+<pre class="r"><code>geo_id &lt;- &quot;GSE176078&quot;</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
 </div>
-<div id="downloading-the-dataset" class="section level2">
-<h2>Downloading the dataset</h2>
-<p>To download the dataset computationally, I will be using <a href="https://bioconductor.org/packages/release/bioc/html/GEOquery.html">GEOquery</a>
+<div id="download" class="section level2">
+<h2>Download</h2>
+<p>To download the dataset computationally, I used <a href="https://bioconductor.org/packages/release/bioc/html/GEOquery.html">GEOquery</a>
 which has been installed via the Dockerfile.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
@@ -1819,106 +1828,156 @@ which has been installed via the Dockerfile.</p>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-<p>I can download the series via the GEO accession ID. For optimizing my
-CPU resources, <code>getGEO</code> uses locally cached versions where
-found to reduce unnecessary duplications of data.</p>
+<p>For optimizing my CPU resource, I created a <code>/data</code> folder
+for all downloads within this assignment and have a function to
+compartmentalize all functionality regarding these stored files.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVaM05sSUR3dElHZGxkRWRGVHloY0lrZFRSVEkyT0RZMk1sd2lMRWRUUlUxaGRISnBlRDFHUVV4VFJTbGNibUJnWUNKOSAtLT5cblxuYGBgclxuZ3NlIDwtIGdldEdFTyhcIkdTRTI2ODY2MlwiLEdTRU1hdHJpeD1GQUxTRSlcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ3NlIDwtIGdldEdFTyhcIkdTRTI2ODY2MlwiLEdTRU1hdHJpeD1GQUxTRSlcbmBgYCJ9 -->
-<pre class="r"><code>gse &lt;- getGEO(&quot;GSE268662&quot;,GSEMatrix=FALSE)</code></pre>
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVaR0YwWVhCaGRHZ2dQQzBnWm1sc1pTNXdZWFJvS0dkbGRIZGtLQ2tzSUZ3aVpHRjBZVndpTENCblpXOWZhV1FwWEc1ellXMXdiR1Z3WVhSb0lEd3RJR1pwYkdVdWNHRjBhQ2hrWVhSaGNHRjBhQ3dnWENKellXMXdiR1Z6WENJcFhHNWNibVJ2ZDI1c2IyRmtYMmxtSUR3dElHWjFibU4wYVc5dUtHWnBiR1Z1WVcxbGN5d2dhV1I0S1NCN1hHNGdJR1pwYkdWdVlXMWxJRHd0SUdacGJHVnVZVzFsY3lSbWJtRnRaVnRwWkhoZFhHNGdJR1pwYkdWd1lYUm9JRHd0SUdacGJHVXVjR0YwYUNoa1lYUmhjR0YwYUN3Z1ptbHNaVzVoYldVcFhHNGdJR2xtSUNnaFptbHNaUzVsZUdsemRITW9abWxzWlhCaGRHZ3BLU0I3WEc0Z0lDQWdabWxzWlNBOUlHZGxkRWRGVDFOMWNIQkdhV3hsY3loblpXOWZhV1FzWEc0Z0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNCbWFXeDBaWEpmY21WblpYZ2dQU0JtYVd4bGJtRnRaU3hjYmlBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUdKaGMyVkVhWElnUFNCbWFXeGxMbkJoZEdnb1oyVjBkMlFvS1N3Z1hDSmtZWFJoWENJcExDQmNiaUFnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJR1psZEdOb1gyWnBiR1Z6SUQwZ1ZGSlZSU2xjYmlBZ0lDQnBaaUFvSVdacGJHVXBJSEpsZEhWeWJpaE9WVXhNS1Z4dUlDQWdJR2xtSUNocFpIZ2dQVDBnTVNrZ2UxeHVJQ0FnSUNBZ0l5QjFiblJoY2lCMGJ5QnpZVzF3YkdWekwxeHVJQ0FnSUNBZ2RXNTBZWElvWm1sc1pYQmhkR2dzSUdWNFpHbHlQWE5oYlhCc1pYQmhkR2dwWEc0Z0lDQWdJQ0J6WVcxd2JHVjBZWEp6SUR3dElHeHBjM1F1Wm1sc1pYTW9jMkZ0Y0d4bGNHRjBhQ3hjYmlBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQndZWFIwWlhKdVBWd2lLQzUwWVhJdVozb3BKRndpTENCY2JpQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0JtZFd4c0xtNWhiV1Z6UFZSU1ZVVXBYRzRnSUNBZ0lDQWpJSFZ1ZW1sd0lHRnNiQ0J6WVcxd2JHVWdkR0Z5YzF4dUlDQWdJQ0FnWm05eUlDaHBJR2x1SURFNmJHVnVaM1JvS0hOaGJYQnNaWFJoY25NcEtTQjdYRzRnSUNBZ0lDQWdJSFZ1ZEdGeUtITmhiWEJzWlhSaGNuTmJhVjBzSUdWNFpHbHlQWE5oYlhCc1pYQmhkR2dwWEc0Z0lDQWdJQ0I5WEc0Z0lDQWdJQ0J5WlhSMWNtNG9jMkZ0Y0d4bGNHRjBhQ2xjYmlBZ0lDQjlJR1ZzYzJVZ2UxeHVJQ0FnSUNBZ2RXNTBZWElvWm1sc1pYQmhkR2dzSUdWNFpHbHlQV1JoZEdGd1lYUm9LVnh1SUNBZ0lDQWdjbVYwZFhKdUtHUmhkR0Z3WVhSb0tWeHVJQ0FnSUgxY2JpQWdmVnh1SUNCeVpYUjFjbTRvWm1sc1pYQmhkR2dwWEc1OVhHNWdZR0FpZlE9PSAtLT5cblxuYGBgclxuZGF0YXBhdGggPC0gZmlsZS5wYXRoKGdldHdkKCksIFwiZGF0YVwiLCBnZW9faWQpXG5zYW1wbGVwYXRoIDwtIGZpbGUucGF0aChkYXRhcGF0aCwgXCJzYW1wbGVzXCIpXG5cbmRvd25sb2FkX2lmIDwtIGZ1bmN0aW9uKGZpbGVuYW1lcywgaWR4KSB7XG4gIGZpbGVuYW1lIDwtIGZpbGVuYW1lcyRmbmFtZVtpZHhdXG4gIGZpbGVwYXRoIDwtIGZpbGUucGF0aChkYXRhcGF0aCwgZmlsZW5hbWUpXG4gIGlmICghZmlsZS5leGlzdHMoZmlsZXBhdGgpKSB7XG4gICAgZmlsZSA9IGdldEdFT1N1cHBGaWxlcyhnZW9faWQsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICBmaWx0ZXJfcmVnZXggPSBmaWxlbmFtZSxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgIGJhc2VEaXIgPSBmaWxlLnBhdGgoZ2V0d2QoKSwgXCJkYXRhXCIpLCBcbiAgICAgICAgICAgICAgICAgICAgICAgICAgIGZldGNoX2ZpbGVzID0gVFJVRSlcbiAgICBpZiAoIWZpbGUpIHJldHVybihOVUxMKVxuICAgIGlmIChpZHggPT0gMSkge1xuICAgICAgIyB1bnRhciB0byBzYW1wbGVzL1xuICAgICAgdW50YXIoZmlsZXBhdGgsIGV4ZGlyPXNhbXBsZXBhdGgpXG4gICAgICBzYW1wbGV0YXJzIDwtIGxpc3QuZmlsZXMoc2FtcGxlcGF0aCxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwYXR0ZXJuPVwiKC50YXIuZ3opJFwiLCBcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBmdWxsLm5hbWVzPVRSVUUpXG4gICAgICAjIHVuemlwIGFsbCBzYW1wbGUgdGFyc1xuICAgICAgZm9yIChpIGluIDE6bGVuZ3RoKHNhbXBsZXRhcnMpKSB7XG4gICAgICAgIHVudGFyKHNhbXBsZXRhcnNbaV0sIGV4ZGlyPXNhbXBsZXBhdGgpXG4gICAgICB9XG4gICAgICByZXR1cm4oc2FtcGxlcGF0aClcbiAgICB9IGVsc2Uge1xuICAgICAgdW50YXIoZmlsZXBhdGgsIGV4ZGlyPWRhdGFwYXRoKVxuICAgICAgcmV0dXJuKGRhdGFwYXRoKVxuICAgIH1cbiAgfVxuICByZXR1cm4oZmlsZXBhdGgpXG59XG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZGF0YXBhdGggPC0gZmlsZS5wYXRoKGdldHdkKCksIFwiZGF0YVwiLCBnZW9faWQpXG5zYW1wbGVwYXRoIDwtIGZpbGUucGF0aChkYXRhcGF0aCwgXCJzYW1wbGVzXCIpXG5cbmRvd25sb2FkX2lmIDwtIGZ1bmN0aW9uKGZpbGVuYW1lcywgaWR4KSB7XG4gIGZpbGVuYW1lIDwtIGZpbGVuYW1lcyRmbmFtZVtpZHhdXG4gIGZpbGVwYXRoIDwtIGZpbGUucGF0aChkYXRhcGF0aCwgZmlsZW5hbWUpXG4gIGlmICghZmlsZS5leGlzdHMoZmlsZXBhdGgpKSB7XG4gICAgZmlsZSA9IGdldEdFT1N1cHBGaWxlcyhnZW9faWQsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICBmaWx0ZXJfcmVnZXggPSBmaWxlbmFtZSxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgIGJhc2VEaXIgPSBmaWxlLnBhdGgoZ2V0d2QoKSwgXCJkYXRhXCIpLCBcbiAgICAgICAgICAgICAgICAgICAgICAgICAgIGZldGNoX2ZpbGVzID0gVFJVRSlcbiAgICBpZiAoIWZpbGUpIHJldHVybihOVUxMKVxuICAgIGlmIChpZHggPT0gMSkge1xuICAgICAgIyB1bnRhciB0byBzYW1wbGVzL1xuICAgICAgdW50YXIoZmlsZXBhdGgsIGV4ZGlyPXNhbXBsZXBhdGgpXG4gICAgICBzYW1wbGV0YXJzIDwtIGxpc3QuZmlsZXMoc2FtcGxlcGF0aCxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwYXR0ZXJuPVwiKC50YXIuZ3opJFwiLCBcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBmdWxsLm5hbWVzPVRSVUUpXG4gICAgICAjIHVuemlwIGFsbCBzYW1wbGUgdGFyc1xuICAgICAgZm9yIChpIGluIDE6bGVuZ3RoKHNhbXBsZXRhcnMpKSB7XG4gICAgICAgIHVudGFyKHNhbXBsZXRhcnNbaV0sIGV4ZGlyPXNhbXBsZXBhdGgpXG4gICAgICB9XG4gICAgICByZXR1cm4oc2FtcGxlcGF0aClcbiAgICB9IGVsc2Uge1xuICAgICAgdW50YXIoZmlsZXBhdGgsIGV4ZGlyPWRhdGFwYXRoKVxuICAgICAgcmV0dXJuKGRhdGFwYXRoKVxuICAgIH1cbiAgfVxuICByZXR1cm4oZmlsZXBhdGgpXG59XG5gYGAifQ== -->
+<pre class="r"><code>datapath &lt;- file.path(getwd(), &quot;data&quot;, geo_id)
+samplepath &lt;- file.path(datapath, &quot;samples&quot;)
+
+download_if &lt;- function(filenames, idx) {
+  filename &lt;- filenames$fname[idx]
+  filepath &lt;- file.path(datapath, filename)
+  if (!file.exists(filepath)) {
+    file = getGEOSuppFiles(geo_id,
+                           filter_regex = filename,
+                           baseDir = file.path(getwd(), &quot;data&quot;), 
+                           fetch_files = TRUE)
+    if (!file) return(NULL)
+    if (idx == 1) {
+      # untar to samples/
+      untar(filepath, exdir=samplepath)
+      sampletars &lt;- list.files(samplepath,
+                               pattern=&quot;(.tar.gz)$&quot;, 
+                               full.names=TRUE)
+      # unzip all sample tars
+      for (i in 1:length(sampletars)) {
+        untar(sampletars[i], exdir=samplepath)
+      }
+      return(samplepath)
+    } else {
+      untar(filepath, exdir=datapath)
+      return(datapath)
+    }
+  }
+  return(filepath)
+}</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiVXNpbmcgbG9jYWxseSBjYWNoZWQgdmVyc2lvbiBvZiBHU0UyNjg2NjIgZm91bmQgaGVyZTpcbi90bXAvUnRtcGhtTEJwRC9HU0UyNjg2NjIuc29mdC5neiBcblJlYWRpbmcgZmlsZS4uLi5cblBhcnNpbmcuLi4uXG5Gb3VuZCAxMCBlbnRpdGllcy4uLlxuR1BMMjQ2NzYgKDEgb2YgMTEgZW50aXRpZXMpXG5HU004Mjk2MTY1ICgyIG9mIDExIGVudGl0aWVzKVxuR1NNODI5NjE2NiAoMyBvZiAxMSBlbnRpdGllcylcbkdTTTgyOTYxNjcgKDQgb2YgMTEgZW50aXRpZXMpXG5HU004Mjk2MTY4ICg1IG9mIDExIGVudGl0aWVzKVxuR1NNODI5NjE2OSAoNiBvZiAxMSBlbnRpdGllcylcbkdTTTgyOTYxNzAgKDcgb2YgMTEgZW50aXRpZXMpXG5HU004Mjk2MTcxICg4IG9mIDExIGVudGl0aWVzKVxuR1NNODI5NjE3MiAoOSBvZiAxMSBlbnRpdGllcylcbkdTTTgyOTYxNzMgKDEwIG9mIDExIGVudGl0aWVzKVxuIn0= -->
-<pre><code>Using locally cached version of GSE268662 found here:
-/tmp/RtmphmLBpD/GSE268662.soft.gz 
-Reading file....
-Parsing....
-Found 10 entities...
-GPL24676 (1 of 11 entities)
-GSM8296165 (2 of 11 entities)
-GSM8296166 (3 of 11 entities)
-GSM8296167 (4 of 11 entities)
-GSM8296168 (5 of 11 entities)
-GSM8296169 (6 of 11 entities)
-GSM8296170 (7 of 11 entities)
-GSM8296171 (8 of 11 entities)
-GSM8296172 (9 of 11 entities)
-GSM8296173 (10 of 11 entities)</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVaMlZ6WDIxaGRDQThMU0JuWlhSSFJVOG9YQ0pIVTBVeU5qZzJOakpjSWl4SFUwVk5ZWFJ5YVhnOVZGSlZSU2xjYm1CZ1lDSjkgLS0+XG5cbmBgYHJcbmdlc19tYXQgPC0gZ2V0R0VPKFwiR1NFMjY4NjYyXCIsR1NFTWF0cml4PVRSVUUpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ2VzX21hdCA8LSBnZXRHRU8oXCJHU0UyNjg2NjJcIixHU0VNYXRyaXg9VFJVRSlcbmBgYCJ9 -->
-<pre class="r"><code>ges_mat &lt;- getGEO(&quot;GSE268662&quot;,GSEMatrix=TRUE)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRm91bmQgMSBmaWxlKHMpXG5HU0UyNjg2NjJfc2VyaWVzX21hdHJpeC50eHQuZ3pcbiJ9 -->
-<pre><code>Found 1 file(s)
-GSE268662_series_matrix.txt.gz</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-<p>To check the data downloaded correctly, I can view the metadata as
-shown.</p>
+<p>However, it is important to note that <code>GEOquery</code> has
+functionality whereby it caches downloaded objects to <code>tmp/</code>
+and will not redownload files if you have already downloaded them in
+this current session. For prolonged existence of files beyond this
+session, <code>data/</code> comes in.</p>
+<p>Knowing this, I downloaded the series via the GEO accession ID.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVhR1ZoWkNoTlpYUmhLR2R6WlNrcFhHNWdZR0FpZlE9PSAtLT5cblxuYGBgclxuaGVhZChNZXRhKGdzZSkpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuaGVhZChNZXRhKGdzZSkpXG5gYGAifQ== -->
-<pre class="r"><code>head(Meta(gse))</code></pre>
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVaM05sSUR3dElHZGxkRWRGVHloblpXOWZhV1FzSUVkVFJVMWhkSEpwZUQxR1FVeFRSU2xjYm1CZ1lDSjkgLS0+XG5cbmBgYHJcbmdzZSA8LSBnZXRHRU8oZ2VvX2lkLCBHU0VNYXRyaXg9RkFMU0UpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ3NlIDwtIGdldEdFTyhnZW9faWQsIEdTRU1hdHJpeD1GQUxTRSlcbmBgYCJ9 -->
+<pre class="r"><code>gse &lt;- getGEO(geo_id, GSEMatrix=FALSE)</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiJGNvbnRhY3RfYWRkcmVzc1xuWzFdIFwieHV5dWFubHUgMzhcIlxuXG4kY29udGFjdF9jaXR5XG5bMV0gXCJiZWlqaW5nXCJcblxuJGNvbnRhY3RfY291bnRyeVxuWzFdIFwiQ2hpbmFcIlxuXG4kY29udGFjdF9lbWFpbFxuWzFdIFwiMTYxMDMwNTIxMUBiam11LmVkdS5jblwiXG5cbiRjb250YWN0X2luc3RpdHV0ZVxuWzFdIFwi5YyX5Yy7XCJcblxuJGNvbnRhY3RfbmFtZVxuWzFdIFwieGlhb3dlaSwsdGFuZ1wiXG4ifQ== -->
-<pre><code>$contact_address
-[1] &quot;xuyuanlu 38&quot;
-
-$contact_city
-[1] &quot;beijing&quot;
-
-$contact_country
-[1] &quot;China&quot;
-
-$contact_email
-[1] &quot;1610305211@bjmu.edu.cn&quot;
-
-$contact_institute
-[1] &quot;北医&quot;
-
-$contact_name
-[1] &quot;xiaowei,,tang&quot;</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-<p>Everything looks correct since the metadata of my downloaded data
-matches the associated information on <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE268662">GEO</a>,
-and the <a href="https://www.cell.com/iscience/fulltext/S2589-0042(24)01907-2?_returnURL=https%3A%2F%2Flinkinghub.elsevier.com%2Fretrieve%2Fpii%2FS2589004224019072%3Fshowall%3Dtrue">publication</a>.</p>
+<p>The platform information for this dataset can be retrieved as follows
+(notably there is only one GPL for this dataset).</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVibUZ0WlhNb1IxTk5UR2x6ZENobmMyVXBLVnh1WUdCZ0luMD0gLS0+XG5cbmBgYHJcbm5hbWVzKEdTTUxpc3QoZ3NlKSlcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubmFtZXMoR1NNTGlzdChnc2UpKVxuYGBgIn0= -->
-<pre class="r"><code>names(GSMList(gse))</code></pre>
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVaM0JzSUR3dElHNWhiV1Z6S0dkelpVQm5jR3h6S1Z4dVozQnNYMmx1Wm04Z1BDMGdUV1YwWVNoblpYUkhSVThvWjNCc0tTbGNibUJnWUNKOSAtLT5cblxuYGBgclxuZ3BsIDwtIG5hbWVzKGdzZUBncGxzKVxuZ3BsX2luZm8gPC0gTWV0YShnZXRHRU8oZ3BsKSlcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ3BsIDwtIG5hbWVzKGdzZUBncGxzKVxuZ3BsX2luZm8gPC0gTWV0YShnZXRHRU8oZ3BsKSlcbmBgYCJ9 -->
+<pre class="r"><code>gpl &lt;- names(gse@gpls)
+gpl_info &lt;- Meta(getGEO(gpl))</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiWzFdIFwiR1NNODI5NjE2NVwiIFwiR1NNODI5NjE2NlwiIFwiR1NNODI5NjE2N1wiIFwiR1NNODI5NjE2OFwiIFwiR1NNODI5NjE2OVwiXG5bNl0gXCJHU004Mjk2MTcwXCIgXCJHU004Mjk2MTcxXCIgXCJHU004Mjk2MTcyXCIgXCJHU004Mjk2MTczXCJcbiJ9 -->
-<pre><code>[1] &quot;GSM8296165&quot; &quot;GSM8296166&quot; &quot;GSM8296167&quot; &quot;GSM8296168&quot; &quot;GSM8296169&quot;
-[6] &quot;GSM8296170&quot; &quot;GSM8296171&quot; &quot;GSM8296172&quot; &quot;GSM8296173&quot;</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-<p>Similarly, all 9 samples are present.</p>
-<p>To retrieve the actual data itself (and not just the series
-information), I can run the following command.</p>
+<p>The platform information for this particular dataset is as
+described.</p>
+<pre class="r"><code>Platform title : Illumina NextSeq 500 (Homo sapiens)
+Submission date : Apr 15 2014
+Last update date : Mar 26 2019
+Organisms : Homo sapiens
+Number of GEO datasets that use this technology : 12938
+Number of GEO samples that use this technology : 348641</code></pre>
+<p>When it comes to the supplementary files housing the raw data counts,
+these are retrieved by the following commands.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVaM05sWDIxaGRDQThMU0JuWlhSSFJVOG9YQ0pIVTBVeU5qZzJOakpjSWl4SFUwVk5ZWFJ5YVhnOVZGSlZSU2xjYm1CZ1lDSjkgLS0+XG5cbmBgYHJcbmdzZV9tYXQgPC0gZ2V0R0VPKFwiR1NFMjY4NjYyXCIsR1NFTWF0cml4PVRSVUUpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZ3NlX21hdCA8LSBnZXRHRU8oXCJHU0UyNjg2NjJcIixHU0VNYXRyaXg9VFJVRSlcbmBgYCJ9 -->
-<pre class="r"><code>gse_mat &lt;- getGEO(&quot;GSE268662&quot;,GSEMatrix=TRUE)</code></pre>
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVabWxzWlc1aGJXVnpJRHd0SUdkbGRFZEZUMU4xY0hCR2FXeGxjeWhuWlc5ZmFXUXNYRzRnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUdabGRHTm9YMlpwYkdWeklEMGdSa0ZNVTBVcFhHNWdZR0FpZlE9PSAtLT5cblxuYGBgclxuZmlsZW5hbWVzIDwtIGdldEdFT1N1cHBGaWxlcyhnZW9faWQsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgIGZldGNoX2ZpbGVzID0gRkFMU0UpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZmlsZW5hbWVzIDwtIGdldEdFT1N1cHBGaWxlcyhnZW9faWQsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgIGZldGNoX2ZpbGVzID0gRkFMU0UpXG5gYGAifQ== -->
+<pre class="r"><code>filenames &lt;- getGEOSuppFiles(geo_id,
+                             fetch_files = FALSE)</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRm91bmQgMSBmaWxlKHMpXG5HU0UyNjg2NjJfc2VyaWVzX21hdHJpeC50eHQuZ3pcblVzaW5nIGxvY2FsbHkgY2FjaGVkIHZlcnNpb246IC90bXAvUnRtcGhtTEJwRC9HU0UyNjg2NjJfc2VyaWVzX21hdHJpeC50eHQuZ3pcblVzaW5nIGxvY2FsbHkgY2FjaGVkIHZlcnNpb24gb2YgR1BMMjQ2NzYgZm91bmQgaGVyZTpcbi90bXAvUnRtcGhtTEJwRC9HUEwyNDY3Ni5zb2Z0Lmd6IFxuIn0= -->
-<pre><code>Found 1 file(s)
-GSE268662_series_matrix.txt.gz
-Using locally cached version: /tmp/RtmphmLBpD/GSE268662_series_matrix.txt.gz
-Using locally cached version of GPL24676 found here:
-/tmp/RtmphmLBpD/GPL24676.soft.gz </code></pre>
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Now, the responsibility to check if our files have been previously
+downloaded falls to our hands.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjbUYzWDNSaGNpQThMU0JrYjNkdWJHOWhaRjlwWmlobWFXeGxibUZ0WlhNc0lERXBYRzVnWUdBaWZRPT0gLS0+XG5cbmBgYHJcbnJhd190YXIgPC0gZG93bmxvYWRfaWYoZmlsZW5hbWVzLCAxKVxuYGBgXG5cbjwhLS0gcm5iLXNvdXJjZS1lbmQgLS0+XG4ifQ== -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucmF3X3RhciA8LSBkb3dubG9hZF9pZihmaWxlbmFtZXMsIDEpXG5gYGAifQ== -->
+<pre class="r"><code>raw_tar &lt;- download_if(filenames, 1)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoidHJ5aW5nIFVSTCAnaHR0cHM6Ly9mdHAubmNiaS5ubG0ubmloLmdvdi9nZW8vc2VyaWVzL0dTRTE3Nm5ubi9HU0UxNzYwNzgvc3VwcGwvL0dTRTE3NjA3OF9SQVcudGFyP3Rvb2w9Z2VvcXVlcnknXG5Db250ZW50IHR5cGUgJ2FwcGxpY2F0aW9uL3gtdGFyJyBsZW5ndGggNTU4MjY0MzIwIGJ5dGVzICg1MzIuNCBNQilcbj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09XG5kb3dubG9hZGVkIDUzMi40IE1CXG4ifQ== -->
+<pre><code>trying URL &#39;https://ftp.ncbi.nlm.nih.gov/geo/series/GSE176nnn/GSE176078/suppl//GSE176078_RAW.tar?tool=geoquery&#39;
+Content type &#39;application/x-tar&#39; length 558264320 bytes (532.4 MB)
+==================================================
+downloaded 532.4 MB</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjMk5mY201aFgzTmxjU0E4TFNCa2IzZHViRzloWkY5cFppaG1hV3hsYm1GdFpYTXNJRElwWEc1Z1lHQWlmUT09IC0tPlxuXG5gYGByXG5zY19ybmFfc2VxIDwtIGRvd25sb2FkX2lmKGZpbGVuYW1lcywgMilcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2Nfcm5hX3NlcSA8LSBkb3dubG9hZF9pZihmaWxlbmFtZXMsIDIpXG5gYGAifQ== -->
+<pre class="r"><code>sc_rna_seq &lt;- download_if(filenames, 2)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoidHJ5aW5nIFVSTCAnaHR0cHM6Ly9mdHAubmNiaS5ubG0ubmloLmdvdi9nZW8vc2VyaWVzL0dTRTE3Nm5ubi9HU0UxNzYwNzgvc3VwcGwvL0dTRTE3NjA3OF9XdV9ldGFsXzIwMjFfQlJDQV9zY1JOQVNlcS50YXIuZ3o/dG9vbD1nZW9xdWVyeSdcbkNvbnRlbnQgdHlwZSAnYXBwbGljYXRpb24veC1nemlwJyBsZW5ndGggNTU4ODI5MjAyIGJ5dGVzICg1MzIuOSBNQilcbj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09XG5kb3dubG9hZGVkIDUzMi45IE1CXG4ifQ== -->
+<pre><code>trying URL &#39;https://ftp.ncbi.nlm.nih.gov/geo/series/GSE176nnn/GSE176078/suppl//GSE176078_Wu_etal_2021_BRCA_scRNASeq.tar.gz?tool=geoquery&#39;
+Content type &#39;application/x-gzip&#39; length 558829202 bytes (532.9 MB)
+==================================================
+downloaded 532.9 MB</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjbUYzWDJOdmRXNTBjeUE4TFNCa2IzZHViRzloWkY5cFppaG1hV3hsYm1GdFpYTXNJRE1wWEc1Z1lHQWlmUT09IC0tPlxuXG5gYGByXG5yYXdfY291bnRzIDwtIGRvd25sb2FkX2lmKGZpbGVuYW1lcywgMylcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucmF3X2NvdW50cyA8LSBkb3dubG9hZF9pZihmaWxlbmFtZXMsIDMpXG5gYGAifQ== -->
+<pre class="r"><code>raw_counts &lt;- download_if(filenames, 3)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoidHJ5aW5nIFVSTCAnaHR0cHM6Ly9mdHAubmNiaS5ubG0ubmloLmdvdi9nZW8vc2VyaWVzL0dTRTE3Nm5ubi9HU0UxNzYwNzgvc3VwcGwvL0dTRTE3NjA3OF9XdV9ldGFsXzIwMjFfYnVsa1JOQXNlcV9yYXdfY291bnRzLnR4dC5nej90b29sPWdlb3F1ZXJ5J1xuQ29udGVudCB0eXBlICdhcHBsaWNhdGlvbi94LWd6aXAnIGxlbmd0aCA1NTMyMzQzIGJ5dGVzICg1LjMgTUIpXG49PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PVxuZG93bmxvYWRlZCA1LjMgTUJcbiJ9 -->
+<pre><code>trying URL &#39;https://ftp.ncbi.nlm.nih.gov/geo/series/GSE176nnn/GSE176078/suppl//GSE176078_Wu_etal_2021_bulkRNAseq_raw_counts.txt.gz?tool=geoquery&#39;
+Content type &#39;application/x-gzip&#39; length 5532343 bytes (5.3 MB)
+==================================================
+downloaded 5.3 MB</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>The datasets are now downloaded in <code>data/</code> with specific
+sample folders within <code>data/samples/</code>.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjeUE4TFNCTllYUnlhWGc2T25KbFlXUk5UU2htYVd4bExuQmhkR2dvYzJGdGNHeGxjR0YwYUN3Z1hDSkRTVVF6TlRnMlhDSXNJRndpWTI5MWJuUmZiV0YwY21sNFgzTndZWEp6WlM1dGRIaGNJaWtwWEc1a2FXMG9jeWxjYm1CZ1lDSjkgLS0+XG5cbmBgYHJcbnMgPC0gTWF0cml4OjpyZWFkTU0oZmlsZS5wYXRoKHNhbXBsZXBhdGgsIFwiQ0lEMzU4NlwiLCBcImNvdW50X21hdHJpeF9zcGFyc2UubXR4XCIpKVxuZGltKHMpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucyA8LSBNYXRyaXg6OnJlYWRNTShmaWxlLnBhdGgoc2FtcGxlcGF0aCwgXCJDSUQzNTg2XCIsIFwiY291bnRfbWF0cml4X3NwYXJzZS5tdHhcIikpXG5kaW0ocylcbmBgYCJ9 -->
+<pre class="r"><code>s &lt;- Matrix::readMM(file.path(samplepath, &quot;CID3586&quot;, &quot;count_matrix_sparse.mtx&quot;))
+dim(s)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDI5NzMzICA2MTc4XG4ifQ== -->
+<pre><code>[1] 29733  6178</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHViV1YwWVNBOExTQnlaV0ZrTG1OemRpaG1hV3hsTG5CaGRHZ29jMkZ0Y0d4bGNHRjBhQ3dnWENKRFNVUXpOVGcyWENJc0lGd2liV1YwWVdSaGRHRXVZM04yWENJcEtWeHVaR2x0S0cxbGRHRXBYRzVnWUdBaWZRPT0gLS0+XG5cbmBgYHJcbm1ldGEgPC0gcmVhZC5jc3YoZmlsZS5wYXRoKHNhbXBsZXBhdGgsIFwiQ0lEMzU4NlwiLCBcIm1ldGFkYXRhLmNzdlwiKSlcbmRpbShtZXRhKVxuYGBgXG5cbjwhLS0gcm5iLXNvdXJjZS1lbmQgLS0+XG4ifQ== -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubWV0YSA8LSByZWFkLmNzdihmaWxlLnBhdGgoc2FtcGxlcGF0aCwgXCJDSUQzNTg2XCIsIFwibWV0YWRhdGEuY3N2XCIpKVxuZGltKG1ldGEpXG5gYGAifQ== -->
+<pre class="r"><code>meta &lt;- read.csv(file.path(samplepath, &quot;CID3586&quot;, &quot;metadata.csv&quot;))
+dim(meta)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDYxNzggICAgOVxuIn0= -->
+<pre><code>[1] 6178    9</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
@@ -1929,84 +1988,58 @@ Using locally cached version of GPL24676 found here:
 <div id="assessing" class="section level2">
 <h2>Assessing</h2>
 <p>Looking at what we are working with,</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjMmh2ZHlobmMyVmZiV0YwS1Z4dVlHQmdJbjA9IC0tPlxuXG5gYGByXG5zaG93KGdzZV9tYXQpXG5gYGBcblxuPCEtLSBybmItc291cmNlLWVuZCAtLT5cbiJ9 -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2hvdyhnc2VfbWF0KVxuYGBgIn0= -->
 <pre class="r"><code>show(gse_mat)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiJEdTRTI2ODY2Ml9zZXJpZXNfbWF0cml4LnR4dC5nelxuRXhwcmVzc2lvblNldCAoc3RvcmFnZU1vZGU6IGxvY2tlZEVudmlyb25tZW50KVxuYXNzYXlEYXRhOiAwIGZlYXR1cmVzLCA5IHNhbXBsZXMgXG4gIGVsZW1lbnQgbmFtZXM6IGV4cHJzIFxucHJvdG9jb2xEYXRhOiBub25lXG5waGVub0RhdGFcbiAgc2FtcGxlTmFtZXM6IEdTTTgyOTYxNjUgR1NNODI5NjE2NiAuLi4gR1NNODI5NjE3MyAoOSB0b3RhbClcbiAgdmFyTGFiZWxzOiB0aXRsZSBnZW9fYWNjZXNzaW9uIC4uLiB0aXNzdWU6Y2gxICgzOCB0b3RhbClcbiAgdmFyTWV0YWRhdGE6IGxhYmVsRGVzY3JpcHRpb25cbmZlYXR1cmVEYXRhOiBub25lXG5leHBlcmltZW50RGF0YTogdXNlICdleHBlcmltZW50RGF0YShvYmplY3QpJ1xuICBwdWJNZWRJZHM6IDM5MjUyOTc2IFxuQW5ub3RhdGlvbjogR1BMMjQ2NzYgXG4ifQ== -->
-<pre><code>$GSE268662_series_matrix.txt.gz
-ExpressionSet (storageMode: lockedEnvironment)
-assayData: 0 features, 9 samples 
-  element names: exprs 
-protocolData: none
-phenoData
-  sampleNames: GSM8296165 GSM8296166 ... GSM8296173 (9 total)
-  varLabels: title geo_accession ... tissue:ch1 (38 total)
-  varMetadata: labelDescription
-featureData: none
-experimentData: use &#39;experimentData(object)&#39;
-  pubMedIds: 39252976 
-Annotation: GPL24676 </code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<p>We can see we have an <code>ExpressionSet</code> object with
-<code>9 samples</code>.</p>
-<p>For each sample, we have the following column names.</p>
-<!-- rnb-text-end -->
-<!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVibUZ0WlhNb2NFUmhkR0VvY0dobGJtOUVZWFJoS0dkelpWOXRZWFJiV3pGZFhTa3BLVnh1WUdCZ0luMD0gLS0+XG5cbmBgYHJcbm5hbWVzKHBEYXRhKHBoZW5vRGF0YShnc2VfbWF0W1sxXV0pKSlcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubmFtZXMocERhdGEocGhlbm9EYXRhKGdzZV9tYXRbWzFdXSkpKVxuYGBgIn0= -->
+<p>We have an <code>ExpressionSet</code> object with
+<code>26 samples</code>.</p>
+<p>For each sample, we can see the column names using the following
+command.</p>
 <pre class="r"><code>names(pData(phenoData(gse_mat[[1]])))</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiIFsxXSBcInRpdGxlXCIgICAgICAgICAgICAgICAgICAgXCJnZW9fYWNjZXNzaW9uXCIgICAgICAgICAgXG4gWzNdIFwic3RhdHVzXCIgICAgICAgICAgICAgICAgICBcInN1Ym1pc3Npb25fZGF0ZVwiICAgICAgICBcbiBbNV0gXCJsYXN0X3VwZGF0ZV9kYXRlXCIgICAgICAgIFwidHlwZVwiICAgICAgICAgICAgICAgICAgIFxuIFs3XSBcImNoYW5uZWxfY291bnRcIiAgICAgICAgICAgXCJzb3VyY2VfbmFtZV9jaDFcIiAgICAgICAgXG4gWzldIFwib3JnYW5pc21fY2gxXCIgICAgICAgICAgICBcImNoYXJhY3RlcmlzdGljc19jaDFcIiAgICBcblsxMV0gXCJtb2xlY3VsZV9jaDFcIiAgICAgICAgICAgIFwiZXh0cmFjdF9wcm90b2NvbF9jaDFcIiAgIFxuWzEzXSBcImV4dHJhY3RfcHJvdG9jb2xfY2gxLjFcIiAgXCJ0YXhpZF9jaDFcIiAgICAgICAgICAgICAgXG5bMTVdIFwiZGF0YV9wcm9jZXNzaW5nXCIgICAgICAgICBcImRhdGFfcHJvY2Vzc2luZy4xXCIgICAgICBcblsxN10gXCJkYXRhX3Byb2Nlc3NpbmcuMlwiICAgICAgIFwicGxhdGZvcm1faWRcIiAgICAgICAgICAgIFxuWzE5XSBcImNvbnRhY3RfbmFtZVwiICAgICAgICAgICAgXCJjb250YWN0X2VtYWlsXCIgICAgICAgICAgXG5bMjFdIFwiY29udGFjdF9waG9uZVwiICAgICAgICAgICBcImNvbnRhY3RfaW5zdGl0dXRlXCIgICAgICBcblsyM10gXCJjb250YWN0X2FkZHJlc3NcIiAgICAgICAgIFwiY29udGFjdF9jaXR5XCIgICAgICAgICAgIFxuWzI1XSBcImNvbnRhY3Rfc3RhdGVcIiAgICAgICAgICAgXCJjb250YWN0X3ppcC9wb3N0YWxfY29kZVwiXG5bMjddIFwiY29udGFjdF9jb3VudHJ5XCIgICAgICAgICBcImRhdGFfcm93X2NvdW50XCIgICAgICAgICBcblsyOV0gXCJpbnN0cnVtZW50X21vZGVsXCIgICAgICAgIFwibGlicmFyeV9zZWxlY3Rpb25cIiAgICAgIFxuWzMxXSBcImxpYnJhcnlfc291cmNlXCIgICAgICAgICAgXCJsaWJyYXJ5X3N0cmF0ZWd5XCIgICAgICAgXG5bMzNdIFwicmVsYXRpb25cIiAgICAgICAgICAgICAgICBcInJlbGF0aW9uLjFcIiAgICAgICAgICAgICBcblszNV0gXCJzdXBwbGVtZW50YXJ5X2ZpbGVfMVwiICAgIFwic3VwcGxlbWVudGFyeV9maWxlXzJcIiAgIFxuWzM3XSBcInN1cHBsZW1lbnRhcnlfZmlsZV8zXCIgICAgXCJ0aXNzdWU6Y2gxXCIgICAgICAgICAgICAgXG4ifQ== -->
-<pre><code> [1] &quot;title&quot;                   &quot;geo_accession&quot;          
- [3] &quot;status&quot;                  &quot;submission_date&quot;        
- [5] &quot;last_update_date&quot;        &quot;type&quot;                   
- [7] &quot;channel_count&quot;           &quot;source_name_ch1&quot;        
- [9] &quot;organism_ch1&quot;            &quot;characteristics_ch1&quot;    
-[11] &quot;molecule_ch1&quot;            &quot;extract_protocol_ch1&quot;   
-[13] &quot;extract_protocol_ch1.1&quot;  &quot;taxid_ch1&quot;              
-[15] &quot;data_processing&quot;         &quot;data_processing.1&quot;      
-[17] &quot;data_processing.2&quot;       &quot;platform_id&quot;            
-[19] &quot;contact_name&quot;            &quot;contact_email&quot;          
-[21] &quot;contact_phone&quot;           &quot;contact_institute&quot;      
-[23] &quot;contact_address&quot;         &quot;contact_city&quot;           
-[25] &quot;contact_state&quot;           &quot;contact_zip/postal_code&quot;
-[27] &quot;contact_country&quot;         &quot;data_row_count&quot;         
-[29] &quot;instrument_model&quot;        &quot;library_selection&quot;      
-[31] &quot;library_source&quot;          &quot;library_strategy&quot;       
-[33] &quot;relation&quot;                &quot;relation.1&quot;             
-[35] &quot;supplementary_file_1&quot;    &quot;supplementary_file_2&quot;   
-[37] &quot;supplementary_file_3&quot;    &quot;tissue:ch1&quot;             </code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-chunk-end -->
-<!-- rnb-text-begin -->
-<p>So, selecting specified columns,</p>
+<p>Selecting specified columns, we can see the subtypes for each sample
+(our features/conditions).</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjMmh2ZHlod1JHRjBZU2h3YUdWdWIwUmhkR0VvWjNObFgyMWhkRnRiTVYxZEtTbGJMR01vTVN3NEtWMHBYRzVnWUdBaWZRPT0gLS0+XG5cbmBgYHJcbnNob3cocERhdGEocGhlbm9EYXRhKGdzZV9tYXRbWzFdXSkpWyxjKDEsOCldKVxuYGBgXG5cbjwhLS0gcm5iLXNvdXJjZS1lbmQgLS0+XG4ifQ== -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2hvdyhwRGF0YShwaGVub0RhdGEoZ3NlX21hdFtbMV1dKSlbLGMoMSw4KV0pXG5gYGAifQ== -->
-<pre class="r"><code>show(pData(phenoData(gse_mat[[1]]))[,c(1,8)])</code></pre>
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjMmh2ZHlod1JHRjBZU2h3YUdWdWIwUmhkR0VvWjNObFgyMWhkRnRiTVYxZEtTbGJMR01vTVN3ek55bGRLVnh1WUdCZ0luMD0gLS0+XG5cbmBgYHJcbnNob3cocERhdGEocGhlbm9EYXRhKGdzZV9tYXRbWzFdXSkpWyxjKDEsMzcpXSlcbmBgYFxuXG48IS0tIHJuYi1zb3VyY2UtZW5kIC0tPlxuIn0= -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2hvdyhwRGF0YShwaGVub0RhdGEoZ3NlX21hdFtbMV1dKSlbLGMoMSwzNyldKVxuYGBgIn0= -->
+<pre class="r"><code>show(pData(phenoData(gse_mat[[1]]))[,c(1,37)])</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1mcmFtZS1iZWdpbiBleUp0WlhSaFpHRjBZU0k2ZXlKamJHRnpjMlZ6SWpwYkltUmhkR0V1Wm5KaGJXVWlYU3dpYm5KdmR5STZPU3dpYm1OdmJDSTZNaXdpYzNWdGJXRnllU0k2ZXlKRVpYTmpjbWx3ZEdsdmJpSTZXeUprWmlCYk9TRERseUF5WFNKZGZYMHNJbkprWmlJNklsVnJVbGxOZDNCWlEyZEJRVUZCVFVGQ1FWVkJRVUZOUmtGQlFVRkJRVlpXVmtWWmRFOUJRVUZDUVVsQlFVRkJRa0ZCVVVGRFVVRkJRVUZHTkVGQlFVUkZkMEZCUVVGSlFVRkJRVkZCUVVGQlExRkJSVUZCYTBGQlFVRkVVV3MwZUVGQlVVRkRVVUZCUVVGT1ExUnFTVUZDUVVGS1FVRkJRVUZyU2xWQlFWRkJRMUZCUVVGQlNrVlVaMEZGUVVGclFVRkJRVU5TUmxGQlFrRkJTa0ZCUVVGQmExWlBRVUZSUVVOUlFVRkJRVXBHVmtGQlJVRkJhMEZCUVVGRFVteFJRVUpCUVVwQlFVRkJRV3RrVlVGQlFVRkZRVUZCUVVGclFVSkJRVXBCUVVGQlJ6SmFiR0pYUm5OYVUwSnBZMjFXYUdNelVXZGliVGw1WWxkR2MwbElVbkJqTTA0eFdsRkJSVUZCYTBGQlFVRmlXbTFXZEZsWGVHeEpSMHA1V2xkR2VtUkRRblZpTTBwMFdWZDNaMlJIYkhwak0xWnNRVUZSUVVOUlFVRkJRbkJ0V2xjeGFHSkhWV2RaYmtwc1dWaE9NRWxJVWpGaVZ6bDVTVWhTY0dNelRqRmFVVUZGUVVGclFVRkJRV0phYlZaMFdWZDRiRWxIU25sYVYwWjZaRU5DZFdJelNuUlpWM2RuWkVkc2VtTXpWbXhCUVZGQlExRkJRVUZDY0cxYVZ6Rm9Za2RWWjFsdVNteFpXRTR3U1VoU01XSlhPWGxKU0ZKd1l6Tk9NVnBSUVVWQlFXdEJRVUZCWWxwdFZuUlpWM2hzU1VkS2VWcFhSbnBrUTBKMVlqTktkRmxYZDJka1IyeDZZek5XYkVGQlVVRkRVVUZCUVVKd2JWcFhNV2hpUjFWbldXNUtiRmxZVGpCSlNGSXhZbGM1ZVVsSVVuQmpNMDR4V2xGQlJVRkJhMEZCUVVGaFdtMVdkRmxYZUd4SlIwcDVXbGRHZW1SRFFqQmtWekYyWTJsQ01HRllUbnBrVjFWQlFrRkJTa0ZCUVVGSGJWcHNZbGRHYzFwVFFtbGpiVlpvWXpOUloyUklWblJpTTBsblpFZHNlbU16Vm14QlFVRkZRV2RCUVVGQlJVRkNRVUZLUVVGQlFVSlhOV2hpVjFaNlFVRkJRVVZCUVVGQlFVbEJRa0ZCU2tGQlFVRkNXRkp3WkVkNGJFRkJVVUZEVVVGQlFVRTVlbUl6Vm5sWk1sWm1ZbTFHZEZwV09XcGhSRVZCUVVGUlEwRkJRVUZCVVVGRlFVRnJRVUZCUVVwamJUa3pURzAxYUdKWFZucEJRVUZCUlVGQlFVRkJhMEZDUVVGS1FVRkJRVU5yWkZSVVZHZDVUMVJaZUU1cVZVRkNRVUZLUVVGQlFVTnJaRlJVVkdkNVQxUlplRTVxV1VGQ1FVRktRVUZCUVVOclpGUlVWR2Q1VDFSWmVFNXFZMEZDUVVGS1FVRkJRVU5yWkZSVVZHZDVUMVJaZUU1cVowRkNRVUZLUVVGQlFVTnJaRlJVVkdkNVQxUlplRTVxYTBGQ1FVRktRVUZCUVVOclpGUlVWR2Q1VDFSWmVFNTZRVUZDUVVGS1FVRkJRVU5yWkZSVVZHZDVUMVJaZUU1NlJVRkNRVUZLUVVGQlFVTnJaRlJVVkdkNVQxUlplRTU2U1VGQ1FVRktRVUZCUVVOclpGUlVWR2Q1VDFSWmVFNTZUVUZCUVZGRFFVRkJRVUZSUVVWQlFXdEJRVUZCUmxreWVHaGpNMDFCUVVGQlVVRkJRVUZCVVVGRlFVRnJRVUZCUVV0YVIwWXdXVk0xYldOdFJuUmFVVUZCUVZBMFFVRkJVVU5CUVVGQlFWRkJSVUZCYTBGQlFVRklZak5DTUdGWE9YVmpkMEZCUVdoTlFVRkJRVWRCUVVGQlJVRkJRVUZCUlVGQ1FVRktRVUZCUVVGWVNVRkJRVUZSUVVGQlFVRlJRVVZCUVd0QlFVRkJVR1JYTlhWWlZ6RnNXa014YW1GSVZuVmhlVEI0UVVGQlFVVkJRVUZCUVVWQlFrRkJTa0ZCUVVGQk0wSjFXbmRCUVVGQmIwRkJRVUZDUVVGQlFVRlJRVUZCUVRCQlFVRkJRa0ZCUVVGRFVVRkJRVUV3UVVGQlFVSkJRVUZCUVdkQlFVSkJTVUZCUVV3dlFVRkJRVVZCUVVGQlFWbEJRa0ZCU2tGQlFVRkNiVloxV2pKc2RWcFJRVVZCUVd0QlFVRkJSbUpIUm1sYVYzZEJRa0ZCU2tGQlFVRkJNbEpzWkdkQlJVRkJhMEZCUVVGUFkyMDVNMkp0Um5SYVdFMTFZMGhLY0dKdVVVRkNRVUZLUVVGQlFVTnVTblprTTAxMVpFYzVNRmxYZDBGQ1FVRktRVUZCUVVOdFRuWmlTRTExWkVjNU1GbFhkMEZCUVVRclFVRkJRUzluUFQwaWZRPT0gLS0+XG5cbjxkaXYgZGF0YS1wYWdlZHRhYmxlPVwiZmFsc2VcIj5cbiAgPHNjcmlwdCBkYXRhLXBhZ2VkdGFibGUtc291cmNlIHR5cGU9XCJhcHBsaWNhdGlvbi9qc29uXCI+XG57XCJjb2x1bW5zXCI6W3tcImxhYmVsXCI6W1wiXCJdLFwibmFtZVwiOltcIl9ybl9cIl0sXCJ0eXBlXCI6W1wiXCJdLFwiYWxpZ25cIjpbXCJsZWZ0XCJdfSx7XCJsYWJlbFwiOltcInRpdGxlXCJdLFwibmFtZVwiOlsxXSxcInR5cGVcIjpbXCJjaHJcIl0sXCJhbGlnblwiOltcImxlZnRcIl19LHtcImxhYmVsXCI6W1wic291cmNlX25hbWVfY2gxXCJdLFwibmFtZVwiOlsyXSxcInR5cGVcIjpbXCJjaHJcIl0sXCJhbGlnblwiOltcImxlZnRcIl19XSxcImRhdGFcIjpbe1wiMVwiOlwiQk4xXCIsXCIyXCI6XCJmZW1hbGUgYnJlYXN0IG5vcm1hbCB0aXNzdWVcIixcIl9ybl9cIjpcIkdTTTgyOTYxNjVcIn0se1wiMVwiOlwiQk4yXCIsXCIyXCI6XCJmZW1hbGUgYnJlYXN0IG5vcm1hbCB0aXNzdWVcIixcIl9ybl9cIjpcIkdTTTgyOTYxNjZcIn0se1wiMVwiOlwiQlRcIixcIjJcIjpcImZlbWFsZSBicmVhc3QgdHVtb3IgdGlzc3VlXCIsXCJfcm5fXCI6XCJHU004Mjk2MTY3XCJ9LHtcIjFcIjpcIkROXCIsXCIyXCI6XCJmZW1hbGUgYnJlYXN0IG5vcm1hbCB0aXNzdWVcIixcIl9ybl9cIjpcIkdTTTgyOTYxNjhcIn0se1wiMVwiOlwiRFRcIixcIjJcIjpcImZlbWFsZSBicmVhc3QgdHVtb3IgdGlzc3VlXCIsXCJfcm5fXCI6XCJHU004Mjk2MTY5XCJ9LHtcIjFcIjpcIkVOXCIsXCIyXCI6XCJmZW1hbGUgYnJlYXN0IG5vcm1hbCB0aXNzdWVcIixcIl9ybl9cIjpcIkdTTTgyOTYxNzBcIn0se1wiMVwiOlwiRVRcIixcIjJcIjpcImZlbWFsZSBicmVhc3QgdHVtb3IgdGlzc3VlXCIsXCJfcm5fXCI6XCJHU004Mjk2MTcxXCJ9LHtcIjFcIjpcIkZUXCIsXCIyXCI6XCJmZW1hbGUgYnJlYXN0IHR1bW9yIHRpc3N1ZVwiLFwiX3JuX1wiOlwiR1NNODI5NjE3MlwifSx7XCIxXCI6XCJHVFwiLFwiMlwiOlwiZmVtYWxlIGJyZWFzdCB0dW1vciB0aXNzdWVcIixcIl9ybl9cIjpcIkdTTTgyOTYxNzNcIn1dLFwib3B0aW9uc1wiOntcImNvbHVtbnNcIjp7XCJtaW5cIjp7fSxcIm1heFwiOlsxMF0sXCJ0b3RhbFwiOlsyXX0sXCJyb3dzXCI6e1wibWluXCI6WzEwXSxcIm1heFwiOlsxMF0sXCJ0b3RhbFwiOls5XX0sXCJwYWdlc1wiOnt9fX1cbiAgPFwvc2NyaXB0PlxuPFwvZGl2PlxuXG48IS0tIHJuYi1mcmFtZS1lbmQgLS0+XG4ifQ== -->
-<!-- rnb-frame-begin eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjpbImRhdGEuZnJhbWUiXSwibnJvdyI6OSwibmNvbCI6Miwic3VtbWFyeSI6eyJEZXNjcmlwdGlvbiI6WyJkZiBbOSDDlyAyXSJdfX0sInJkZiI6IlVrUllNd3BZQ2dBQUFBTUFCQVVBQUFNRkFBQUFBQVZWVkVZdE9BQUFCQUlBQUFBQkFBUUFDUUFBQUFGNEFBQURFd0FBQUFJQUFBQVFBQUFBQ1FBRUFBa0FBQUFEUWs0eEFBUUFDUUFBQUFOQ1RqSUFCQUFKQUFBQUFrSlVBQVFBQ1FBQUFBSkVUZ0FFQUFrQUFBQUNSRlFBQkFBSkFBQUFBa1ZPQUFRQUNRQUFBQUpGVkFBRUFBa0FBQUFDUmxRQUJBQUpBQUFBQWtkVUFBQUFFQUFBQUFrQUJBQUpBQUFBRzJabGJXRnNaU0JpY21WaGMzUWdibTl5YldGc0lIUnBjM04xWlFBRUFBa0FBQUFiWm1WdFlXeGxJR0p5WldGemRDQnViM0p0WVd3Z2RHbHpjM1ZsQUFRQUNRQUFBQnBtWlcxaGJHVWdZbkpsWVhOMElIUjFiVzl5SUhScGMzTjFaUUFFQUFrQUFBQWJabVZ0WVd4bElHSnlaV0Z6ZENCdWIzSnRZV3dnZEdsemMzVmxBQVFBQ1FBQUFCcG1aVzFoYkdVZ1luSmxZWE4wSUhSMWJXOXlJSFJwYzNOMVpRQUVBQWtBQUFBYlptVnRZV3hsSUdKeVpXRnpkQ0J1YjNKdFlXd2dkR2x6YzNWbEFBUUFDUUFBQUJwbVpXMWhiR1VnWW5KbFlYTjBJSFIxYlc5eUlIUnBjM04xWlFBRUFBa0FBQUFhWm1WdFlXeGxJR0p5WldGemRDQjBkVzF2Y2lCMGFYTnpkV1VBQkFBSkFBQUFHbVpsYldGc1pTQmljbVZoYzNRZ2RIVnRiM0lnZEdsemMzVmxBQUFFQWdBQUFBRUFCQUFKQUFBQUJXNWhiV1Z6QUFBQUVBQUFBQUlBQkFBSkFBQUFCWFJwZEd4bEFBUUFDUUFBQUE5emIzVnlZMlZmYm1GdFpWOWphREVBQUFRQ0FBQUFBUUFFQUFrQUFBQUpjbTkzTG01aGJXVnpBQUFBRUFBQUFBa0FCQUFKQUFBQUNrZFRUVGd5T1RZeE5qVUFCQUFKQUFBQUNrZFRUVGd5T1RZeE5qWUFCQUFKQUFBQUNrZFRUVGd5T1RZeE5qY0FCQUFKQUFBQUNrZFRUVGd5T1RZeE5qZ0FCQUFKQUFBQUNrZFRUVGd5T1RZeE5qa0FCQUFKQUFBQUNrZFRUVGd5T1RZeE56QUFCQUFKQUFBQUNrZFRUVGd5T1RZeE56RUFCQUFKQUFBQUNrZFRUVGd5T1RZeE56SUFCQUFKQUFBQUNrZFRUVGd5T1RZeE56TUFBQVFDQUFBQUFRQUVBQWtBQUFBRlkyeGhjM01BQUFBUUFBQUFBUUFFQUFrQUFBQUtaR0YwWVM1bWNtRnRaUUFBQVA0QUFBUUNBQUFBQVFBRUFBa0FBQUFIYjNCMGFXOXVjd0FBQWhNQUFBQUdBQUFBRUFBQUFBRUFCQUFKQUFBQUFYSUFBQUFRQUFBQUFRQUVBQWtBQUFBUGRXNXVZVzFsWkMxamFIVnVheTB4QUFBQUVBQUFBQUVBQkFBSkFBQUFBM0J1WndBQUFBb0FBQUFCQUFBQUFRQUFBQTBBQUFBQkFBQUFDUUFBQUEwQUFBQUJBQUFBQWdBQUJBSUFBQUwvQUFBQUVBQUFBQVlBQkFBSkFBQUFCbVZ1WjJsdVpRQUVBQWtBQUFBRmJHRmlaV3dBQkFBSkFBQUFBMlJsZGdBRUFBa0FBQUFPY205M2JtRnRaWE11Y0hKcGJuUUFCQUFKQUFBQUNuSnZkM011ZEc5MFlXd0FCQUFKQUFBQUNtTnZiSE11ZEc5MFlXd0FBQUQrQUFBQS9nPT0ifQ== -->
-<div data-pagedtable="false">
-<script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["title"],"name":[1],"type":["chr"],"align":["left"]},{"label":["source_name_ch1"],"name":[2],"type":["chr"],"align":["left"]}],"data":[{"1":"BN1","2":"female breast normal tissue","_rn_":"GSM8296165"},{"1":"BN2","2":"female breast normal tissue","_rn_":"GSM8296166"},{"1":"BT","2":"female breast tumor tissue","_rn_":"GSM8296167"},{"1":"DN","2":"female breast normal tissue","_rn_":"GSM8296168"},{"1":"DT","2":"female breast tumor tissue","_rn_":"GSM8296169"},{"1":"EN","2":"female breast normal tissue","_rn_":"GSM8296170"},{"1":"ET","2":"female breast tumor tissue","_rn_":"GSM8296171"},{"1":"FT","2":"female breast tumor tissue","_rn_":"GSM8296172"},{"1":"GT","2":"female breast tumor tissue","_rn_":"GSM8296173"}],"options":{"columns":{"min":{},"max":[10],"total":[2]},"rows":{"min":[10],"max":[10],"total":[9]},"pages":{}}}
-  </script>
-</div>
-<!-- rnb-frame-end -->
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
-<p>We have <code>5</code> tumour tissue samples, and <code>4</code>
-normal tissue samples. This is a reasonable split for analysis.</p>
+<p>The following code generates a data frame for us to look at the
+summary statistics of the subtype counts.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG48IS0tIHJuYi1zb3VyY2UtYmVnaW4gZXlKa1lYUmhJam9pWUdCZ2NseHVjbUYzWDNOMVluUjVjR1Z6SUR3dElIQkVZWFJoS0hCb1pXNXZSR0YwWVNobmMyVmZiV0YwVzFzeFhWMHBLVnNzWXlnek55bGRYRzVjYm1obGNqSWdQU0JzWlc1bmRHZ29kMmhwWTJnb2NtRjNYM04xWW5SNWNHVnpJRDA5SUZ3aVNFVlNNaXRjSWlrcFhHNW9aWEl5WlhJZ1BTQnNaVzVuZEdnb2QyaHBZMmdvY21GM1gzTjFZblI1Y0dWeklEMDlJRndpU0VWU01pc3ZSVklyWENJcEtWeHVkRzVpWXlBOUlHeGxibWQwYUNoM2FHbGphQ2h5WVhkZmMzVmlkSGx3WlhNZ1BUMGdYQ0pVVGtKRFhDSXBLVnh1WlhJZ1BTQnNaVzVuZEdnb2QyaHBZMmdvY21GM1gzTjFZblI1Y0dWeklEMDlJRndpUlZJclhDSXBLVnh1ZEc5MFlXd2dQU0J6ZFcwb2FHVnlNaXdnYUdWeU1tVnlMQ0IwYm1KakxDQmxjaWxjYmx4dWMzVmlkSGx3WlY5a1ppQTlJR1JoZEdFdVpuSmhiV1VvWXlob1pYSXlMQ0JvWlhJeVpYSXNJSFJ1WW1Nc0lHVnlMQ0IwYjNSaGJDa3NJRnh1SUNBZ0lDQWdJQ0FnSUNBZ0lDQWdJQ0FnSUNBZ0lDQWdjbTkzTG01aGJXVnpJRDBnWXloY0lraEZVaklyWENJc0lGd2lTRVZTTWlzdlJWSXJYQ0lzSUZ3aVZFNUNRMXdpTENCY0lrVlNLMXdpTENCY0lsUnZkR0ZzWENJcEtWeHVZMjlzYm1GdFpYTW9jM1ZpZEhsd1pWOWtaaWtnUFNCY0lrTnZkVzUwYzF3aVhHNXpkV0owZVhCbFgyUm1KRkJsY21ObGJuUmhaMlZ6SUQwZ2MzVmlkSGx3WlY5a1ppUkRiM1Z1ZEhNZ0tpQXhNREFnTHlCMGIzUmhiRnh1WTI5c2JtRnRaWE1vYzNWaWRIbHdaVjlrWmlrZ1BTQmpLRndpUTI5MWJuUnpYQ0lzSUZ3aVVHVnlZMlZ1ZEdGblpYTmNJaWxjYm5OMVluUjVjR1ZmWkdaY2JtQmdZQ0o5IC0tPlxuXG5gYGByXG5yYXdfc3VidHlwZXMgPC0gcERhdGEocGhlbm9EYXRhKGdzZV9tYXRbWzFdXSkpWyxjKDM3KV1cblxuaGVyMiA9IGxlbmd0aCh3aGljaChyYXdfc3VidHlwZXMgPT0gXCJIRVIyK1wiKSlcbmhlcjJlciA9IGxlbmd0aCh3aGljaChyYXdfc3VidHlwZXMgPT0gXCJIRVIyKy9FUitcIikpXG50bmJjID0gbGVuZ3RoKHdoaWNoKHJhd19zdWJ0eXBlcyA9PSBcIlROQkNcIikpXG5lciA9IGxlbmd0aCh3aGljaChyYXdfc3VidHlwZXMgPT0gXCJFUitcIikpXG50b3RhbCA9IHN1bShoZXIyLCBoZXIyZXIsIHRuYmMsIGVyKVxuXG5zdWJ0eXBlX2RmID0gZGF0YS5mcmFtZShjKGhlcjIsIGhlcjJlciwgdG5iYywgZXIsIHRvdGFsKSwgXG4gICAgICAgICAgICAgICAgICAgICAgICByb3cubmFtZXMgPSBjKFwiSEVSMitcIiwgXCJIRVIyKy9FUitcIiwgXCJUTkJDXCIsIFwiRVIrXCIsIFwiVG90YWxcIikpXG5jb2xuYW1lcyhzdWJ0eXBlX2RmKSA9IFwiQ291bnRzXCJcbnN1YnR5cGVfZGYkUGVyY2VudGFnZXMgPSBzdWJ0eXBlX2RmJENvdW50cyAqIDEwMCAvIHRvdGFsXG5jb2xuYW1lcyhzdWJ0eXBlX2RmKSA9IGMoXCJDb3VudHNcIiwgXCJQZXJjZW50YWdlc1wiKVxuc3VidHlwZV9kZlxuYGBgXG5cbjwhLS0gcm5iLXNvdXJjZS1lbmQgLS0+XG4ifQ== -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucmF3X3N1YnR5cGVzIDwtIHBEYXRhKHBoZW5vRGF0YShnc2VfbWF0W1sxXV0pKVssYygzNyldXG5cbmhlcjIgPSBsZW5ndGgod2hpY2gocmF3X3N1YnR5cGVzID09IFwiSEVSMitcIikpXG5oZXIyZXIgPSBsZW5ndGgod2hpY2gocmF3X3N1YnR5cGVzID09IFwiSEVSMisvRVIrXCIpKVxudG5iYyA9IGxlbmd0aCh3aGljaChyYXdfc3VidHlwZXMgPT0gXCJUTkJDXCIpKVxuZXIgPSBsZW5ndGgod2hpY2gocmF3X3N1YnR5cGVzID09IFwiRVIrXCIpKVxudG90YWwgPSBzdW0oaGVyMiwgaGVyMmVyLCB0bmJjLCBlcilcblxuc3VidHlwZV9kZiA9IGRhdGEuZnJhbWUoYyhoZXIyLCBoZXIyZXIsIHRuYmMsIGVyLCB0b3RhbCksIFxuICAgICAgICAgICAgICAgICAgICAgICAgcm93Lm5hbWVzID0gYyhcIkhFUjIrXCIsIFwiSEVSMisvRVIrXCIsIFwiVE5CQ1wiLCBcIkVSK1wiLCBcIlRvdGFsXCIpKVxuY29sbmFtZXMoc3VidHlwZV9kZikgPSBcIkNvdW50c1wiXG5zdWJ0eXBlX2RmJFBlcmNlbnRhZ2VzID0gc3VidHlwZV9kZiRDb3VudHMgKiAxMDAgLyB0b3RhbFxuY29sbmFtZXMoc3VidHlwZV9kZikgPSBjKFwiQ291bnRzXCIsIFwiUGVyY2VudGFnZXNcIilcbnN1YnR5cGVfZGZcbmBgYCJ9 -->
+<pre class="r"><code>raw_subtypes &lt;- pData(phenoData(gse_mat[[1]]))[,c(37)]
+
+her2 = length(which(raw_subtypes == &quot;HER2+&quot;))
+her2er = length(which(raw_subtypes == &quot;HER2+/ER+&quot;))
+tnbc = length(which(raw_subtypes == &quot;TNBC&quot;))
+er = length(which(raw_subtypes == &quot;ER+&quot;))
+total = sum(her2, her2er, tnbc, er)
+
+subtype_df = data.frame(c(her2, her2er, tnbc, er, total), 
+                        row.names = c(&quot;HER2+&quot;, &quot;HER2+/ER+&quot;, &quot;TNBC&quot;, &quot;ER+&quot;, &quot;Total&quot;))
+colnames(subtype_df) = &quot;Counts&quot;
+subtype_df$Percentages = subtype_df$Counts * 100 / total
+colnames(subtype_df) = c(&quot;Counts&quot;, &quot;Percentages&quot;)
+subtype_df</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>As mentioned, there are 26 samples, encompassed by
+<code>HER2+</code>, <code>HER2+/ER+</code>, <code>TNBC</code>, and
+<code>ER+</code>. The overlap of features will be interesting, however
+it is only 2 of 26, so will not make a majority of the data, and I may
+choose to ignore this case if it gets to that point for me.</p>
+<p>As for the actual raw count information, downloading the sample files
+is done as shown.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
 </div>
 <div id="mapping" class="section level2">
 <h2>Mapping</h2>
@@ -2035,15 +2068,15 @@ run in the editor is displayed.</p>
 <h1>Bibliography</h1>
 <!-- rnb-text-end -->
 <div id="refs" class="references csl-bib-body">
-<div id="ref-song2024multi" class="csl-entry">
-1. Song H, Tang X, Liu M, Wang G, Yuan Y, Pang R, et al. Multi-omic
-analysis identifies metabolic biomarkers for the early detection of
-breast cancer and therapeutic response prediction. Iscience. 2024;27.
+<div id="ref-wu2021single" class="csl-entry">
+1. Wu SZ, Al-Eryani G, Roden DL, Junankar S, Harvey K, Andersson A, et
+al. A single-cell and spatially resolved atlas of human breast cancers.
+Nature genetics. 2021;53:1334–47.
 </div>
 </div>
 </div>
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiQXNzaWdubWVudCAxIgpzdWJ0aXRsZTogIkluaXRpYWwgZGF0YXNldCBwcm9jZXNzaW5nIgphdXRob3I6ICJBbm5hYmVsbGEgQnJlZ2F6emkiCmRhdGU6ICJgciBTeXMuRGF0ZSgpYCIKb3V0cHV0OiAKICBodG1sX25vdGVib29rOgogICAgdG9jOiB0cnVlCmJpYmxpb2dyYXBoeTogYTFfcmVmZXJlbmNlcy5iaWIKY3NsOiBiaW9tZWQtY2VudHJhbC5jc2wKLS0tCgojIEFjcXVpcmluZyBkYXRhCgojIyBTZWxlY3RpbmcgdGhlIGRhdGFzZXQKClRoZSBkYXRhc2V0IEkgaGF2ZSBzZWxlY3RlZCBpcyBSTkFTZXEgb2YgdGhlIHRyYW5zY3JpcHRvbWUgb2Ygbm9ybWFsIGFuZCBjYW5jZXIgYnJlYXN0IHRpc3N1ZSBbQHNvbmcyMDI0bXVsdGldIHJldHJpZXZlZCBmcm9tIFtHRU9dKGh0dHBzOi8vd3d3Lm5jYmkubmxtLm5paC5nb3YvZ2VvL3F1ZXJ5L2FjYy5jZ2k/YWNjPUdTRTI2ODY2MikuCgpUaGUgY2hhcmFjdGVyaXN0aWNzIG9mIHRoaXMgZGF0YXNldCBhcmUuLi4KCiMjIERvd25sb2FkaW5nIHRoZSBkYXRhc2V0CgpUbyBkb3dubG9hZCB0aGUgZGF0YXNldCBjb21wdXRhdGlvbmFsbHksIEkgd2lsbCBiZSB1c2luZyBbR0VPcXVlcnldKGh0dHBzOi8vYmlvY29uZHVjdG9yLm9yZy9wYWNrYWdlcy9yZWxlYXNlL2Jpb2MvaHRtbC9HRU9xdWVyeS5odG1sKSB3aGljaCBoYXMgYmVlbiBpbnN0YWxsZWQgdmlhIHRoZSBEb2NrZXJmaWxlLgoKYGBge3IsIG1lc3NhZ2U9RkFMU0V9CmxpYnJhcnkoR0VPcXVlcnkpCmBgYAoKSSBjYW4gZG93bmxvYWQgdGhlIHNlcmllcyB2aWEgdGhlIEdFTyBhY2Nlc3Npb24gSUQuIEZvciBvcHRpbWl6aW5nIG15IENQVSByZXNvdXJjZXMsIGBnZXRHRU9gIHVzZXMgbG9jYWxseSBjYWNoZWQgdmVyc2lvbnMgd2hlcmUgZm91bmQgdG8gcmVkdWNlIHVubmVjZXNzYXJ5IGR1cGxpY2F0aW9ucyBvZiBkYXRhLgoKYGBge3J9CmdzZSA8LSBnZXRHRU8oIkdTRTI2ODY2MiIsR1NFTWF0cml4PUZBTFNFKQpgYGAKClRvIGNoZWNrIHRoZSBkYXRhIGRvd25sb2FkZWQgY29ycmVjdGx5LCBJIGNhbiB2aWV3IHRoZSBtZXRhZGF0YSBhcyBzaG93bi4KCmBgYHtyfQpoZWFkKE1ldGEoZ3NlKSkKYGBgCgpFdmVyeXRoaW5nIGxvb2tzIGNvcnJlY3Qgc2luY2UgdGhlIG1ldGFkYXRhIG9mIG15IGRvd25sb2FkZWQgZGF0YSBtYXRjaGVzIHRoZSBhc3NvY2lhdGVkIGluZm9ybWF0aW9uIG9uIFtHRU9dKGh0dHBzOi8vd3d3Lm5jYmkubmxtLm5paC5nb3YvZ2VvL3F1ZXJ5L2FjYy5jZ2k/YWNjPUdTRTI2ODY2MiksIGFuZCB0aGUgW3B1YmxpY2F0aW9uXShodHRwczovL3d3dy5jZWxsLmNvbS9pc2NpZW5jZS9mdWxsdGV4dC9TMjU4OS0wMDQyKDI0KTAxOTA3LTI/X3JldHVyblVSTD1odHRwcyUzQSUyRiUyRmxpbmtpbmdodWIuZWxzZXZpZXIuY29tJTJGcmV0cmlldmUlMkZwaWklMkZTMjU4OTAwNDIyNDAxOTA3MiUzRnNob3dhbGwlM0R0cnVlKS4KCmBgYHtyfQpuYW1lcyhHU01MaXN0KGdzZSkpCmBgYAoKU2ltaWxhcmx5LCBhbGwgOSBzYW1wbGVzIGFyZSBwcmVzZW50LgoKVG8gcmV0cmlldmUgdGhlIGFjdHVhbCBkYXRhIGl0c2VsZiAoYW5kIG5vdCBqdXN0IHRoZSBzZXJpZXMgaW5mb3JtYXRpb24pLCBJIGNhbiBydW4gdGhlIGZvbGxvd2luZyBjb21tYW5kLgoKYGBge3J9CmdzZV9tYXQgPC0gZ2V0R0VPKCJHU0UyNjg2NjIiLEdTRU1hdHJpeD1UUlVFKQpgYGAKCiMgUHJvY2Vzc2luZwoKIyMgQXNzZXNzaW5nCgpMb29raW5nIGF0IHdoYXQgd2UgYXJlIHdvcmtpbmcgd2l0aCwKCmBgYHtyfQpzaG93KGdzZV9tYXQpCmBgYAoKV2UgY2FuIHNlZSB3ZSBoYXZlIGFuIGBFeHByZXNzaW9uU2V0YCBvYmplY3Qgd2l0aCBgOSBzYW1wbGVzYC4gCgpGb3IgZWFjaCBzYW1wbGUsIHdlIGhhdmUgdGhlIGZvbGxvd2luZyBjb2x1bW4gbmFtZXMuCgpgYGB7cn0KbmFtZXMocERhdGEocGhlbm9EYXRhKGdzZV9tYXRbWzFdXSkpKQpgYGAKClNvLCBzZWxlY3Rpbmcgc3BlY2lmaWVkIGNvbHVtbnMsIAoKYGBge3J9CnNob3cocERhdGEocGhlbm9EYXRhKGdzZV9tYXRbWzFdXSkpWyxjKDEsOCldKQpgYGAKCldlIGhhdmUgYDVgIHR1bW91ciB0aXNzdWUgc2FtcGxlcywgYW5kIGA0YCBub3JtYWwgdGlzc3VlIHNhbXBsZXMuIFRoaXMgaXMgYSByZWFzb25hYmxlIHNwbGl0IGZvciBhbmFseXNpcy4KCgoKIyMgTWFwcGluZwoKIyMgQ2xlYW5pbmcKClRyeSBleGVjdXRpbmcgdGhpcyBjaHVuayBieSBjbGlja2luZyB0aGUgKlJ1biogYnV0dG9uIHdpdGhpbiB0aGUgY2h1bmsgb3IgYnkgcGxhY2luZyB5b3VyIGN1cnNvciBpbnNpZGUgaXQgYW5kIHByZXNzaW5nICpDdHJsK1NoaWZ0K0VudGVyKi4gCgojIyBOb3JtYWxpemF0aW9uCgpXaGVuIHlvdSBzYXZlIHRoZSBub3RlYm9vaywgYW4gSFRNTCBmaWxlIGNvbnRhaW5pbmcgdGhlIGNvZGUgYW5kIG91dHB1dCB3aWxsIGJlIHNhdmVkIGFsb25nc2lkZSBpdCAoY2xpY2sgdGhlICpQcmV2aWV3KiBidXR0b24gb3IgcHJlc3MgKkN0cmwrU2hpZnQrSyogdG8gcHJldmlldyB0aGUgSFRNTCBmaWxlKS4KCiMgSW50ZXJwcmV0YXRpb24KClRoZSBwcmV2aWV3IHNob3dzIHlvdSBhIHJlbmRlcmVkIEhUTUwgY29weSBvZiB0aGUgY29udGVudHMgb2YgdGhlIGVkaXRvci4gQ29uc2VxdWVudGx5LCB1bmxpa2UgKktuaXQqLCAqUHJldmlldyogZG9lcyBub3QgcnVuIGFueSBSIGNvZGUgY2h1bmtzLiBJbnN0ZWFkLCB0aGUgb3V0cHV0IG9mIHRoZSBjaHVuayB3aGVuIGl0IHdhcyBsYXN0IHJ1biBpbiB0aGUgZWRpdG9yIGlzIGRpc3BsYXllZC4KCiMgQmlibGlvZ3JhcGh5Cg==</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiQXNzaWdubWVudCAxIgpzdWJ0aXRsZTogIkluaXRpYWwgZGF0YXNldCBwcm9jZXNzaW5nIgphdXRob3I6ICJBbm5hYmVsbGEgQnJlZ2F6emkiCmRhdGU6ICJgciBTeXMuRGF0ZSgpYCIKb3V0cHV0OiAKICBodG1sX25vdGVib29rOgogICAgdG9jOiB0cnVlCmJpYmxpb2dyYXBoeTogYTFfcmVmZXJlbmNlcy5iaWIKY3NsOiBiaW9tZWQtY2VudHJhbC5jc2wKLS0tCgojIEFjcXVpcmluZyBkYXRhCgojIyBJbnRyb2R1Y3Rpb24KClRoZSBkYXRhc2V0IEkgaGF2ZSBzZWxlY3RlZCBjb250YWlucyBzY1JOQS1TZXEgb2YgMjYgcHJpbWFyeSBwcmUtdHJlYXRtZW50IHR1bW91cnMsIGluY2x1ZGluZyAxMSBFUissIDUgSEVSMisgYW5kIDEwIFROQkNzIFtAd3UyMDIxc2luZ2xlXSByZXRyaWV2ZWQgZnJvbSBbR0VPIHdpdGggYWNjZXNzaW9uIEdTRTE3NjA3OF0oaHR0cHM6Ly93d3cubmNiaS5ubG0ubmloLmdvdi9nZW8vcXVlcnkvYWNjLmNnaT9hY2M9R1NFMTc2MDc4KSBhbmQgW2Fzc29jaWF0ZWQgcHVibGljYXRpb25dKGh0dHBzOi8vcG1jLm5jYmkubmxtLm5paC5nb3YvYXJ0aWNsZXMvUE1DOTA0NDgyMy8pLgoKYGBge3J9Cmdlb19pZCA8LSAiR1NFMTc2MDc4IgpgYGAKCiMjIERvd25sb2FkCgpUbyBkb3dubG9hZCB0aGUgZGF0YXNldCBjb21wdXRhdGlvbmFsbHksIEkgdXNlZCBbR0VPcXVlcnldKGh0dHBzOi8vYmlvY29uZHVjdG9yLm9yZy9wYWNrYWdlcy9yZWxlYXNlL2Jpb2MvaHRtbC9HRU9xdWVyeS5odG1sKSB3aGljaCBoYXMgYmVlbiBpbnN0YWxsZWQgdmlhIHRoZSBEb2NrZXJmaWxlLgoKYGBge3IsIG1lc3NhZ2U9RkFMU0V9CmxpYnJhcnkoR0VPcXVlcnkpCmBgYAoKRm9yIG9wdGltaXppbmcgbXkgQ1BVIHJlc291cmNlLCBJIGNyZWF0ZWQgYSBgL2RhdGFgIGZvbGRlciBmb3IgYWxsIGRvd25sb2FkcyB3aXRoaW4gdGhpcyBhc3NpZ25tZW50IGFuZCBoYXZlIGEgZnVuY3Rpb24gdG8gY29tcGFydG1lbnRhbGl6ZSBhbGwgZnVuY3Rpb25hbGl0eSByZWdhcmRpbmcgdGhlc2Ugc3RvcmVkIGZpbGVzLgoKYGBge3J9CmRhdGFwYXRoIDwtIGZpbGUucGF0aChnZXR3ZCgpLCAiZGF0YSIsIGdlb19pZCkKc2FtcGxlcGF0aCA8LSBmaWxlLnBhdGgoZGF0YXBhdGgsICJzYW1wbGVzIikKCmRvd25sb2FkX2lmIDwtIGZ1bmN0aW9uKGZpbGVuYW1lcywgaWR4KSB7CiAgZmlsZW5hbWUgPC0gZmlsZW5hbWVzJGZuYW1lW2lkeF0KICBmaWxlcGF0aCA8LSBmaWxlLnBhdGgoZGF0YXBhdGgsIGZpbGVuYW1lKQogIGlmICghZmlsZS5leGlzdHMoZmlsZXBhdGgpKSB7CiAgICBmaWxlID0gZ2V0R0VPU3VwcEZpbGVzKGdlb19pZCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgZmlsdGVyX3JlZ2V4ID0gZmlsZW5hbWUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgIGJhc2VEaXIgPSBmaWxlLnBhdGgoZ2V0d2QoKSwgImRhdGEiKSwgCiAgICAgICAgICAgICAgICAgICAgICAgICAgIGZldGNoX2ZpbGVzID0gVFJVRSkKICAgIGlmICghZmlsZSkgcmV0dXJuKE5VTEwpCiAgICBpZiAoaWR4ID09IDEpIHsKICAgICAgIyB1bnRhciB0byBzYW1wbGVzLwogICAgICB1bnRhcihmaWxlcGF0aCwgZXhkaXI9c2FtcGxlcGF0aCkKICAgICAgc2FtcGxldGFycyA8LSBsaXN0LmZpbGVzKHNhbXBsZXBhdGgsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwYXR0ZXJuPSIoLnRhci5neikkIiwgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBmdWxsLm5hbWVzPVRSVUUpCiAgICAgICMgdW56aXAgYWxsIHNhbXBsZSB0YXJzCiAgICAgIGZvciAoaSBpbiAxOmxlbmd0aChzYW1wbGV0YXJzKSkgewogICAgICAgIHVudGFyKHNhbXBsZXRhcnNbaV0sIGV4ZGlyPXNhbXBsZXBhdGgpCiAgICAgIH0KICAgICAgcmV0dXJuKHNhbXBsZXBhdGgpCiAgICB9IGVsc2UgewogICAgICB1bnRhcihmaWxlcGF0aCwgZXhkaXI9ZGF0YXBhdGgpCiAgICAgIHJldHVybihkYXRhcGF0aCkKICAgIH0KICB9CiAgcmV0dXJuKGZpbGVwYXRoKQp9CmBgYAoKSG93ZXZlciwgaXQgaXMgaW1wb3J0YW50IHRvIG5vdGUgdGhhdCBgR0VPcXVlcnlgIGhhcyBmdW5jdGlvbmFsaXR5IHdoZXJlYnkgaXQgY2FjaGVzIGRvd25sb2FkZWQgb2JqZWN0cyB0byBgdG1wL2AgYW5kIHdpbGwgbm90IHJlZG93bmxvYWQgZmlsZXMgaWYgeW91IGhhdmUgYWxyZWFkeSBkb3dubG9hZGVkIHRoZW0gaW4gdGhpcyBjdXJyZW50IHNlc3Npb24uIEZvciBwcm9sb25nZWQgZXhpc3RlbmNlIG9mIGZpbGVzIGJleW9uZCB0aGlzIHNlc3Npb24sIGBkYXRhL2AgY29tZXMgaW4uCgpLbm93aW5nIHRoaXMsIEkgZG93bmxvYWRlZCB0aGUgc2VyaWVzIHZpYSB0aGUgR0VPIGFjY2Vzc2lvbiBJRC4gCgpgYGB7ciwgbWVzc2FnZT1GQUxTRX0KZ3NlIDwtIGdldEdFTyhnZW9faWQsIEdTRU1hdHJpeD1GQUxTRSkKYGBgCgpUaGUgcGxhdGZvcm0gaW5mb3JtYXRpb24gZm9yIHRoaXMgZGF0YXNldCBjYW4gYmUgcmV0cmlldmVkIGFzIGZvbGxvd3MgKG5vdGFibHkgdGhlcmUgaXMgb25seSBvbmUgR1BMIGZvciB0aGlzIGRhdGFzZXQpLgoKYGBge3IsIG1lc3NhZ2U9RmFsc2V9CmdwbCA8LSBuYW1lcyhnc2VAZ3BscykKZ3BsX2luZm8gPC0gTWV0YShnZXRHRU8oZ3BsKSkKYGBgCgpUaGUgcGxhdGZvcm0gaW5mb3JtYXRpb24gZm9yIHRoaXMgcGFydGljdWxhciBkYXRhc2V0IGlzIGFzIGRlc2NyaWJlZC4KCmBgYHIKUGxhdGZvcm0gdGl0bGUgOiBgciBncGxfaW5mbyR0aXRsZWAKU3VibWlzc2lvbiBkYXRlIDogYHIgZ3BsX2luZm8kc3VibWlzc2lvbl9kYXRlYApMYXN0IHVwZGF0ZSBkYXRlIDogYHIgZ3BsX2luZm8kbGFzdF91cGRhdGVfZGF0ZWAKT3JnYW5pc21zIDogYHIgZ3BsX2luZm8kb3JnYW5pc21gCk51bWJlciBvZiBHRU8gZGF0YXNldHMgdGhhdCB1c2UgdGhpcyB0ZWNobm9sb2d5IDogYHIgbGVuZ3RoKGdwbF9pbmZvJHNlcmllc19pZClgCk51bWJlciBvZiBHRU8gc2FtcGxlcyB0aGF0IHVzZSB0aGlzIHRlY2hub2xvZ3kgOiBgciBsZW5ndGgoZ3BsX2luZm8kc2FtcGxlX2lkKWAKYGBgCgpXaGVuIGl0IGNvbWVzIHRvIHRoZSBzdXBwbGVtZW50YXJ5IGZpbGVzIGhvdXNpbmcgdGhlIHJhdyBkYXRhIGNvdW50cywgdGhlc2UgYXJlIHJldHJpZXZlZCBieSB0aGUgZm9sbG93aW5nIGNvbW1hbmRzLgoKYGBge3J9CmZpbGVuYW1lcyA8LSBnZXRHRU9TdXBwRmlsZXMoZ2VvX2lkLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgIGZldGNoX2ZpbGVzID0gRkFMU0UpCmBgYAoKTm93LCB0aGUgcmVzcG9uc2liaWxpdHkgdG8gY2hlY2sgaWYgb3VyIGZpbGVzIGhhdmUgYmVlbiBwcmV2aW91c2x5IGRvd25sb2FkZWQgZmFsbHMgdG8gb3VyIGhhbmRzLgoKYGBge3IsIG1lc3NhZ2U9RkFMU0V9CnJhd190YXIgPC0gZG93bmxvYWRfaWYoZmlsZW5hbWVzLCAxKQpzY19ybmFfc2VxIDwtIGRvd25sb2FkX2lmKGZpbGVuYW1lcywgMikKcmF3X2NvdW50cyA8LSBkb3dubG9hZF9pZihmaWxlbmFtZXMsIDMpCmBgYAoKVGhlIGRhdGFzZXRzIGFyZSBub3cgZG93bmxvYWRlZCBpbiBgZGF0YS9gIHdpdGggc3BlY2lmaWMgc2FtcGxlIGZvbGRlcnMgd2l0aGluIGBkYXRhL3NhbXBsZXMvYC4KCmBgYHtyfQpzIDwtIE1hdHJpeDo6cmVhZE1NKGZpbGUucGF0aChzYW1wbGVwYXRoLCAiQ0lEMzU4NiIsICJjb3VudF9tYXRyaXhfc3BhcnNlLm10eCIpKQpkaW0ocykKYGBgCmBgYHtyfQptZXRhIDwtIHJlYWQuY3N2KGZpbGUucGF0aChzYW1wbGVwYXRoLCAiQ0lEMzU4NiIsICJtZXRhZGF0YS5jc3YiKSkKZGltKG1ldGEpCmBgYAoKIyBQcm9jZXNzaW5nCgojIyBBc3Nlc3NpbmcKCkxvb2tpbmcgYXQgd2hhdCB3ZSBhcmUgd29ya2luZyB3aXRoLAoKYGBgcgpzaG93KGdzZV9tYXQpCmBgYAoKV2UgaGF2ZSBhbiBgRXhwcmVzc2lvblNldGAgb2JqZWN0IHdpdGggYDI2IHNhbXBsZXNgLiAKCkZvciBlYWNoIHNhbXBsZSwgd2UgY2FuIHNlZSB0aGUgY29sdW1uIG5hbWVzIHVzaW5nIHRoZSBmb2xsb3dpbmcgY29tbWFuZC4KCmBgYHIKbmFtZXMocERhdGEocGhlbm9EYXRhKGdzZV9tYXRbWzFdXSkpKQpgYGAKClNlbGVjdGluZyBzcGVjaWZpZWQgY29sdW1ucywgd2UgY2FuIHNlZSB0aGUgc3VidHlwZXMgZm9yIGVhY2ggc2FtcGxlIChvdXIgZmVhdHVyZXMvY29uZGl0aW9ucykuCgpgYGB7cn0Kc2hvdyhwRGF0YShwaGVub0RhdGEoZ3NlX21hdFtbMV1dKSlbLGMoMSwzNyldKQpgYGAKClRoZSBmb2xsb3dpbmcgY29kZSBnZW5lcmF0ZXMgYSBkYXRhIGZyYW1lIGZvciB1cyB0byBsb29rIGF0IHRoZSBzdW1tYXJ5IHN0YXRpc3RpY3Mgb2YgdGhlIHN1YnR5cGUgY291bnRzLgoKYGBge3J9CnJhd19zdWJ0eXBlcyA8LSBwRGF0YShwaGVub0RhdGEoZ3NlX21hdFtbMV1dKSlbLGMoMzcpXQoKaGVyMiA9IGxlbmd0aCh3aGljaChyYXdfc3VidHlwZXMgPT0gIkhFUjIrIikpCmhlcjJlciA9IGxlbmd0aCh3aGljaChyYXdfc3VidHlwZXMgPT0gIkhFUjIrL0VSKyIpKQp0bmJjID0gbGVuZ3RoKHdoaWNoKHJhd19zdWJ0eXBlcyA9PSAiVE5CQyIpKQplciA9IGxlbmd0aCh3aGljaChyYXdfc3VidHlwZXMgPT0gIkVSKyIpKQp0b3RhbCA9IHN1bShoZXIyLCBoZXIyZXIsIHRuYmMsIGVyKQoKc3VidHlwZV9kZiA9IGRhdGEuZnJhbWUoYyhoZXIyLCBoZXIyZXIsIHRuYmMsIGVyLCB0b3RhbCksIAogICAgICAgICAgICAgICAgICAgICAgICByb3cubmFtZXMgPSBjKCJIRVIyKyIsICJIRVIyKy9FUisiLCAiVE5CQyIsICJFUisiLCAiVG90YWwiKSkKY29sbmFtZXMoc3VidHlwZV9kZikgPSAiQ291bnRzIgpzdWJ0eXBlX2RmJFBlcmNlbnRhZ2VzID0gc3VidHlwZV9kZiRDb3VudHMgKiAxMDAgLyB0b3RhbApjb2xuYW1lcyhzdWJ0eXBlX2RmKSA9IGMoIkNvdW50cyIsICJQZXJjZW50YWdlcyIpCnN1YnR5cGVfZGYKYGBgCgpBcyBtZW50aW9uZWQsIHRoZXJlIGFyZSAyNiBzYW1wbGVzLCBlbmNvbXBhc3NlZCBieSBgSEVSMitgLCBgSEVSMisvRVIrYCwgYFROQkNgLCBhbmQgYEVSK2AuIFRoZSBvdmVybGFwIG9mIGZlYXR1cmVzIHdpbGwgYmUgaW50ZXJlc3RpbmcsIGhvd2V2ZXIgaXQgaXMgb25seSAyIG9mIDI2LCBzbyB3aWxsIG5vdCBtYWtlIGEgbWFqb3JpdHkgb2YgdGhlIGRhdGEsIGFuZCBJIG1heSBjaG9vc2UgdG8gaWdub3JlIHRoaXMgY2FzZSBpZiBpdCBnZXRzIHRvIHRoYXQgcG9pbnQgZm9yIG1lLgoKQXMgZm9yIHRoZSBhY3R1YWwgcmF3IGNvdW50IGluZm9ybWF0aW9uLCBkb3dubG9hZGluZyB0aGUgc2FtcGxlIGZpbGVzIGlzIGRvbmUgYXMgc2hvd24uCgpgYGB7ciwgbWVzc2FnZT1GYWxzZX0KCmBgYAoKIyMgTWFwcGluZwoKIyMgQ2xlYW5pbmcKClRyeSBleGVjdXRpbmcgdGhpcyBjaHVuayBieSBjbGlja2luZyB0aGUgKlJ1biogYnV0dG9uIHdpdGhpbiB0aGUgY2h1bmsgb3IgYnkgcGxhY2luZyB5b3VyIGN1cnNvciBpbnNpZGUgaXQgYW5kIHByZXNzaW5nICpDdHJsK1NoaWZ0K0VudGVyKi4gCgojIyBOb3JtYWxpemF0aW9uCgpXaGVuIHlvdSBzYXZlIHRoZSBub3RlYm9vaywgYW4gSFRNTCBmaWxlIGNvbnRhaW5pbmcgdGhlIGNvZGUgYW5kIG91dHB1dCB3aWxsIGJlIHNhdmVkIGFsb25nc2lkZSBpdCAoY2xpY2sgdGhlICpQcmV2aWV3KiBidXR0b24gb3IgcHJlc3MgKkN0cmwrU2hpZnQrSyogdG8gcHJldmlldyB0aGUgSFRNTCBmaWxlKS4KCiMgSW50ZXJwcmV0YXRpb24KClRoZSBwcmV2aWV3IHNob3dzIHlvdSBhIHJlbmRlcmVkIEhUTUwgY29weSBvZiB0aGUgY29udGVudHMgb2YgdGhlIGVkaXRvci4gQ29uc2VxdWVudGx5LCB1bmxpa2UgKktuaXQqLCAqUHJldmlldyogZG9lcyBub3QgcnVuIGFueSBSIGNvZGUgY2h1bmtzLiBJbnN0ZWFkLCB0aGUgb3V0cHV0IG9mIHRoZSBjaHVuayB3aGVuIGl0IHdhcyBsYXN0IHJ1biBpbiB0aGUgZWRpdG9yIGlzIGRpc3BsYXllZC4KCiMgQmlibGlvZ3JhcGh5Cg==</div>
 
 
 
