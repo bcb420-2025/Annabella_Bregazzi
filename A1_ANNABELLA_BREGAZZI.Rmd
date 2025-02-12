@@ -1,0 +1,470 @@
+---
+title: "Assignment 1"
+subtitle: "Initial dataset processing"
+author: "Annabella Bregazzi"
+date: "`r Sys.Date()`"
+output: 
+  html_notebook:
+    toc: true
+bibliography: a1/a1_references.bib
+csl: a1/biomed-central.csl
+---
+
+```{r, echo=False, message=False}
+library(knitr)
+```
+
+# Acquiring data
+
+## Introduction
+
+The dataset I have selected contains single-cell RNA seq of 26 primary pre-treatment breast cancer tumours, 24 of which have bulk RNA seq across clinical subtypes ER+, HER2+, and TNBC [@wu2021single] retrieved from GEO with 
+
+- accession [GSE176078](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176078), and 
+- [associated publication](https://pmc.ncbi.nlm.nih.gov/articles/PMC9044823/).
+
+```{r}
+geo_id <- "GSE176078"
+```
+
+##### Why is the dataset of interest to you?
+
+I chose this dataset because a very important family friend who cared for me and my parents when I was little recently got diagnosed with breast cancer. They were able to detect it early with artificial intelligence-assisted medical imaging whereby the physician in charge said they would have missed it if not for the assistance.
+
+Although the transcriptomic profile is different, it is still associated with a general atlas and characterization of genes in association with clinical subtypes of breast cancer, and so is an important topic to me.
+
+## Download
+
+To download the dataset computationally, I used [GEOquery](https://bioconductor.org/packages/release/bioc/html/GEOquery.html) [@GEOquery2007] which has been installed via the Dockerfile.
+
+```{r, message=False}
+library(GEOquery)
+```
+
+For optimizing my CPU resources, I created a function to compartmentalize all functionality regarding downloading the raw counts for this dataset.
+
+However, it is important to note that `GEOquery` has functionality whereby it caches downloaded objects (like `ExpressionSet`'s) to `tmp/` and will not re-download files if they exist in the current session. However, for prolonged existence of files, it is our responsibility to optimize our own resources.
+
+Knowing this, I downloaded the series via the GEO accession ID. 
+
+```{r, message=False}
+gse <- getGEO(geo_id, GSEMatrix=FALSE)
+```
+
+The platform information for this dataset can be retrieved as follows (notably there is only one GPL for this dataset).
+
+```{r, message=False}
+gpl <- names(gse@gpls)
+gpl_info <- Meta(getGEO(gpl))
+```
+
+The platform information for this particular dataset is as described.
+
+```r
+Platform title : `r gpl_info$title`
+Submission date : `r gpl_info$submission_date`
+Last update date : `r gpl_info$last_update_date`
+Organisms : `r gpl_info$organism`
+Number of GEO datasets that use this technology : `r length(gpl_info$series_id)`
+Number of GEO samples that use this technology : `r length(gpl_info$sample_id)`
+```
+
+When it comes to the supplementary files containing the raw data counts, the responsibility to check if said files have previously been downloaded falls to my hands. 
+
+I used this function to download the raw counts file only if it is not already downloaded.
+
+```{r}
+download_if <- function(filenames) {
+  # we want the third file (raw counts)
+  filename <- filenames$fname[3]
+  filepath <- file.path(getwd(), filename)
+  if (!file.exists(filepath)) { # if the file is not already downloaded
+    # download the file
+    file = getGEOSuppFiles(geo_id,
+                           filter_regex = filename,
+                           baseDir = file.path(getwd()), 
+                           fetch_files = TRUE)
+    # untar & unzip the file
+    untar(file.path(getwd(), geo_id, filename), 
+          exdir=file.path(getwd(), geo_id))
+  }
+  # return the file path of the raw counts
+  filename <- gsub(".gz", "", filename)
+  return(file.path(getwd(), geo_id, filename))
+}
+```
+
+```{r, message=False}
+filenames <- getGEOSuppFiles(geo_id,
+                             fetch_files = FALSE)
+raw_counts_filepath <- download_if(filenames)
+```
+
+The dataset is now downloaded and unzipped in `raw_counts_filepath`.
+
+Despite the filetype being a `txt`, this file is a `tsv`, so it can be read by the following command.
+
+```{r}
+raw_counts <- read.csv(file.path(raw_counts_filepath), sep="\t")
+```
+
+The dimensions of this data are:
+
+```r
+`r dim(raw_counts)[1]` genes by `r dim(raw_counts)[2] - 1` samples
+```
+
+I move the genes from the first column to rowname, for easier processing.
+
+```{r}
+rownames(raw_counts) <- raw_counts[,1]
+raw_counts <- raw_counts[2:length(raw_counts)]
+```
+
+# Processing
+
+## Assessing
+
+To collate important information from the `26 samples` in the study, I run the following commands.
+
+```{r}
+samples <- gse@gsms
+# pull the sample titles and characteristics
+types <- do.call(rbind,
+                 lapply(samples,,
+                        FUN=function(x, ...){
+                          c(x@header$title,
+                            x@header$characteristics_ch1)
+                        }))
+```
+
+Every sample has the characteristic `gender: female` and `tissue: Primary Breast Tumor`, so these columns are redundant for our case and can be removed. 
+
+Furthermore, cleanup can be performed on clinical subtype (condition) strings.
+
+```{r}
+types <- types[,c(1,2)]
+colnames(types) <- c("sample", "subtype")
+types[,"subtype"] <- gsub(types[,"subtype"],
+                          pattern = "clinical_subtype: ",
+                          replacement = "")
+```
+
+#### The control and test conditions
+
+Breast cancers are __clinically__ stratified based on:
+
+- expression of the estrogen receptor (*ER*), 
+- expression of the progesterone receptor (*PR*), and
+- overexpression of *HER2* (or amplification of *HER2* gene *ERBB2*)
+
+This results in the following three __clinical subtypes__ within this dataset:
+
+- Luminal ie. *ER+*; (*ER+*, *PR+/-*)
+- *HER2+*; (*HER2+*, *ER+/-*, *PR+/-*)
+- Triple Negative ie. *TNBC*; (*ER-*, *PR-*, *HER2-*)
+
+Breast cancers are also stratified on bulk transcriptomic profiling via PAM50 [@parker2009supervised] gene signatures, describing five __molecular subtypes__: Luminal A, Luminal B, HER2-enriched, Basal-like, and Normal-like.
+
+The ~70-80% concordance between clinical and molecular subtypes motivated this study to improve the functional understanding of these subtypes.
+
+Conclusively, the clinical subtype conditions in this dataset are as follows:
+
+- *HER2+* ; (*HER2+*, *ER-*, *PR+/-*)
+- *HER2+/ER+* ; (*HER2+*, *ER+*, *PR+/-*)
+- *ER+* ; (*HER2-*, *ER+*, *PR+/-*)
+- *TNBC* ; (*HER2-*, *ER-*, *PR-*)
+
+For my analysis, I am using the 24 samples present in the bulk RNAseq data, so I filter out the 2 which are missing.
+
+```{r}
+present <- colnames(raw_counts)
+types <- types[which(types[,"sample"] %in% present),]
+```
+
+We now have the `24 samples` present in our bulk RNAseq raw counts. 
+
+#### How many samples in each condition?
+
+This includes the following splits on the clinical subtypes within the bulk RNAseq dataset.
+
+```{r}
+her2 = length(which(types[,"subtype"] == "HER2+"))
+her2er = length(which(types[,"subtype"] == "HER2+/ER+"))
+tnbc = length(which(types[,"subtype"] == "TNBC"))
+er = length(which(types[,"subtype"] == "ER+"))
+total = sum(her2, her2er, tnbc, er)
+
+subtype_counts = data.frame(c(her2, her2er, tnbc, er, total),
+                            row.names = c("HER2+ ; (HER2+, ER-, PR+/-)", 
+                                          "HER2+/ER+ ; (HER2+, ER+, PR+/-)", 
+                                          "TNBC ; (HER2-, ER-, PR-)", 
+                                          "ER+ ; (HER2-, ER+, PR+/-)", "Total"))
+subtype_counts$percentages = subtype_counts[,1] * 100 / total
+kable(subtype_counts, 
+      caption="Clinical subtype condition splits", 
+      format="html",
+      digits = 2,
+      col.names = c("Count", "Percentage"))
+```
+<br/>
+
+Of the four included conditions, `ER+` ie. (*HER2-*, *ER+*) makes up `50%` of samples __alone__. 
+
+## Mapping
+
+#### Handling Non-Unique Expression values for Specific Genes
+
+First, I wanted to characterize the gene symbols to determine where to go with mapping. Most non-unique expression values were from gene identifiers of uncharacterized genes from [Roswell Park](https://www.roswellpark.org/) BAC clones.
+
+```{r}
+all_versioned <- rownames(raw_counts)
+versioned <- all_versioned[grep(all_versioned, pattern = "[.].*$")]
+```
+
+Of the total versioned genes, there are ``r length(versioned)`` genes with versions.
+
+```{r}
+all_unversioned <- gsub("[.]\\d+", "", all_versioned)
+duplicates <- all_unversioned[duplicated(all_unversioned)]
+all_unversioned <- unique(all_unversioned)
+```
+
+Removing the versions from the genes removes ``r  length(duplicates)`` ~ ``r 100 * (length(duplicates)) / length(all_versioned)``% of versioned genes within our data. 
+
+However, this still leaves us with ``r length(all_unversioned)`` unversioned genes of the previous ``r length(all_versioned)`` genes.
+
+```{r}
+rp_duplicates <- duplicates[grep(duplicates,
+                                 pattern = "^[R][P].*[-]")]
+```
+
+There are ``r length(rp_duplicates)`` versioned `RP` genes which are duplicates making about ``r 100 * length(rp_duplicates) / length(duplicates)``% of all duplicates with respect to version.
+
+The remaining duplicates can be checked against `biomaRt` [@biomaRt2005] [@biomaRt2009] to see if any have valid Hugo Symbols and cannot be discarded.
+
+```{r, message=FALSE}
+library(biomaRt)
+```
+
+The publication uses `GRCh38`, so we can use the current *homo sapiens* ensembl.
+
+```{r}
+ensembl <- useMart("ensembl")
+dataset <- useDataset("hsapiens_gene_ensembl", mart=ensembl)
+```
+
+The following function converts gene symbols only if they are not an existing `rds` file already, to save CPU resource. Although it appears the gene symbols are already HGNC, I am using `biomaRt` to check that they are current and updated gene symbols so the rest will be discarded. 
+
+The gene symbol annotations appeared very messy and filled with varying formats of gene symbols, so this will exclude genes that may be outdated or use improper symbols.
+
+```{r, message=False}
+convert_if <- function(genes) {
+  conversion_filepath <- "conversion.rds"
+  # if conversion file exists
+  if(file.exists(conversion_filepath)) {
+    # read it in
+    conversion <- readRDS(conversion_filepath)
+  } else { # otherwise, fetch it
+    # all genes without '-'
+    all_symbol <- genes[grep(genes, pattern = "^[^-]*$")]
+    # all genes with '-'
+    all_trans <- genes[grep(genes, pattern = "^.*[-]+.*$")]
+    conversion <- getBM(attributes =
+                          c("hgnc_symbol"),
+                        filters = 
+                          c("hgnc_symbol"),
+                        values = all_symbol,
+                        mart = dataset)
+    # and save it
+    saveRDS(conversion, conversion_filepath)
+  }
+  return(conversion)
+}
+```
+
+```{r, message=FALSE}
+conversion <- convert_if(all_unversioned)
+```
+
+#### Expression values that could not be mapped to current HUGO symbols 
+
+We were able to map ``r dim(conversion)[1]`` genes of the original ``r length(all_unversioned)``.
+
+This was difficult since there are quite a large portion of genes present that are already HGNC symbols, so I had to run the unversioned ones through `biomaRt` to make sure they were current.
+
+And, in fact, a lot of them were not current, or were different symbols. So this mapping was something of a filtering operation as well.
+
+#### Replicates
+
+As for the duplicated original versions in the raw counts, I decided to drop all duplicates at the moment since there are so many genes present.
+
+```{r}
+# add unversioned column to denote unversioned gene name
+raw_counts$unversioned <- gsub("[.]\\d+", "", rownames(raw_counts))
+# remove rows with duplicate unversioned names
+raw_counts <- raw_counts[- which(duplicated(raw_counts$unversioned)),]
+# change the rownames to be unversioned
+rownames(raw_counts) <- raw_counts$unversioned
+# remove unversioned column
+raw_counts <- raw_counts[, !(names(raw_counts) %in% c("unversioned"))]
+```
+
+Now, we have ``r dim(raw_counts)[1]`` unversioned genes in our raw counts.
+
+```{r}
+mapped <- conversion$hgnc_symbol
+raw_counts <- raw_counts[which(rownames(raw_counts) %in% mapped),]
+```
+
+And now, we have ``r dim(raw_counts)[1]`` unversioned genes that have been successfully mapped/verified to be HGNC.
+
+## Cleaning
+
+#### Outliers
+
+The associated publication [@wu2021single] removed all cells that did not pass quality control already, and in their analysis they removed any tumours with < 150 cancer cells.
+
+After exploring the data myself, I chose to put the minimum number of samples at 5 since it appeared to give me the best balance.
+
+For the cleaning and normalizing, I make use of `edgeR` [@edgeR2025].
+
+```{r, message=False}
+library(edgeR)
+```
+
+I transform the counts to *CPM* using `edgeR` and then filter out rows with less than 10 samples.
+
+```{r, message=FALSE}
+counts_matrix <- as.matrix(raw_counts)
+min_num <- 5
+
+# remove min number of samples
+keep <- rowSums(edgeR::cpm(counts_matrix) > 1) > min_num
+filtered_matrix <- counts_matrix[keep,]
+# filter out all NA's
+filtered_matrix <- na.omit(filtered_matrix)
+```
+
+According to my filters, there were ``r dim(counts_matrix)[1] - dim(filtered_matrix)[1]`` outliers, so I ended up removing a conservative ``r dim(counts_matrix)[1] - dim(filtered_matrix)[1] / dim(counts_matrix)[1]``% of values.
+
+To plot these in comparison with their normalized values, I make use of `RColorBrewer` [@R-RColorBrewer].
+
+```{r}
+library(RColorBrewer)
+```
+
+```{r}
+plot_density <- function(matrix, title) {
+  nsamples <- ncol(matrix)
+  col <- colorRampPalette( brewer.pal(12,"Paired") )(nsamples)
+  
+  cpm <- edgeR::cpm(matrix)
+
+  plot(density(cpm[,1]), col=col[1], lwd=2, 
+       ylim=c(0,0.1), xlim=c(0,900), las=2, main="", xlab="")
+  title(main=title, xlab="CPM")
+  for (i in 2:nsamples){
+    den <- density(cpm[,i])
+    lines(den$x, den$y, col=col[i], lwd=2)
+  }
+}
+
+plot_density(filtered_matrix, "Filtered, unnormalized")
+```
+
+#### Coverage
+
+Our final dataset contains ``r dim(filtered_matrix)[1]`` genes which gives us a coverage of ``r 100 * dim(filtered_matrix)[1] / length(all_versioned)``% of the original gene rows present.
+
+We could opt to be more conservative on the filtering, or mapping constraints, however this would prove to be more difficult. I want to see what I can find with this current coverage, and if it proves to be more difficult, I can come back and implement some more leniency.
+
+## Normalization
+
+Using the now cleaned and mapped data matrix, I create an `edgeR` container for the RNAseq counts.
+
+```{r}
+d <- DGEList(counts = filtered_matrix,
+             group = types[,2])
+```
+
+Then, we calculate the normalization factors.
+
+```{r}
+d = calcNormFactors(d, method = "TMM")
+```
+
+```{r}
+plot_density(d, "Filtered, Normalized")
+```
+
+For plotting, I use `limma` [@limma2015].
+
+```{r, message=False}
+library(limma)
+```
+
+I plot a multi-dimensional scaling plot to represent distances between samples.
+
+```{r}
+colours <- brewer.pal(4, "Paired")
+  
+limma::plotMDS(d, labels=NULL, pch=1,
+               col = colours[factor(types[,2])])
+legend("topright",
+       legend = levels(factor(types[,2])),
+       pch = c(1), col=colours,
+       title = "Class", bty = "n", cex = 0.75)
+title("Clinical subtypes - Multi-Dimensional Scaling Plot")
+```
+
+```{r}
+nsamples <- ncol(matrix)
+colours <- colorRampPalette( brewer.pal(12,"Paired") )(nsamples)
+  
+limma::plotMDS(d, labels=NULL, pch=1,
+               col = colours[factor(types[,1])])
+legend("topright",
+       legend = levels(factor(types[,1])),
+       pch = c(1), col=colours,
+       title = "Class", bty = "n", cex = 0.75)
+title("Samples - Multi-Dimensional Scaling Plot")
+```
+
+My plots look interesting. I may have to do some more data cleaning, normalizing.
+
+I struggled with completing the BCV on time, it was not running for me--but I have included the code commented out.
+
+```r
+model_d <- model.matrix(~types[,2]+types[,1])
+d <- estimateDisp(d, model_d)
+plotBCV(d, col.tagwise = "black", col.common = "red")
+```
+
+# Interpretation
+
+- [Why is the dataset of interest to you?](#why-is-the-dataset-of-interest-to-you)
+
+- [What are the control and test conditions of the dataset?](#the-control-and-test-conditions)
+
+- [How many samples in each of the conditions of your dataset?](#how-many-samples-in-each-condition)
+
+- [Were there expression values that were not unique for specific genes? How did you handle these?](#handling-non-unique-expression-values-for-specific-genes)
+
+- [Were there expression values that could not be mapped to current HUGO symbols?](#expression-values-that-could-not-be-mapped-to-current-HUGO-symbols)
+
+- [Were there any outliers in your dataset? How were they handled in the originating paper? How many outliers were removed?](#outliers)
+
+- [How did you handle replicates?](#replicates)
+
+- [What is your final coverage of your dataset?](#coverage)
+
+# Acknowledgments
+
+This markdown was written with the use of `knitr` [@knitr2015].
+
+As mentioned previously, `GEOquery` [@GEOquery2007], `biomaRt` [@biomaRt2005] [@biomaRt2009], `Rcolorbrewer` [@R-RColorBrewer], `edgeR` [@edgeR2025], and `limma` [@limma2015] packages were used throughout this report.
+
+The primary dataset was sourced from `Wu et al.` [@wu2021single]
+
+# Bibliography
