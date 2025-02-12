@@ -12,6 +12,11 @@ csl: a1/biomed-central.csl
 
 ```{r, echo=False, message=False}
 library(knitr)
+
+require(GEOquery)
+require(limma)
+require(edgeR)
+require(biomaRt)
 ```
 
 # Acquiring data
