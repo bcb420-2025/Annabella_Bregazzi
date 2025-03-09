@@ -12,4 +12,5 @@ xaringan bookdown gprofiler2
 RUN R -e 'BiocManager::install("GEOquery")'
 RUN R -e 'BiocManager::install("edgeR")'
 RUN R -e 'BiocManager::install("DESeq2")'
+RUN R -e 'BiocManager::install("biomaRt")'
 RUN R -e 'BiocManager::install("limma")'
