@@ -1,0 +1,838 @@
+---
+title: "Assignment 2"
+subtitle: "Differential Gene Expression and Preliminary ORA"
+author: "Annabella Bregazzi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: cosmo
+    toc: yes
+    toc_float:
+      collapsed: true
+    number_sections: true
+    fig_caption: true
+bibliography: a2_references.bib
+csl: biomed-central.csl
+link-citations: true
+---
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+library(knitr)
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+tryCatch(expr = { library("GEOquery")}, 
+         error = function(e) { 
+           install.packages("GEOquery")}, 
+         finally = library("GEOquery"))
+tryCatch(expr = { library("kableExtra")}, 
+         error = function(e) { 
+           install.packages("kableExtra")}, 
+         finally = library("kableExtra"))
+tryCatch(expr = { library("edgeR")}, 
+         error = function(e) { 
+           install.packages("edgeR")}, 
+         finally = library("edgeR"))
+tryCatch(expr = { library("limma")}, 
+         error = function(e) { 
+           install.packages("limma")}, 
+         finally = library("limma"))
+if (!require("ComplexHeatmap", quietly = TRUE))
+    BiocManager::install("ComplexHeatmap")
+if (!require("circlize", quietly = TRUE))
+    BiocManager::install("circlize")
+tryCatch(expr = { library("gprofiler2")}, 
+         error = function(e) { 
+           install.packages("gprofiler2")}, 
+         finally = library("gprofiler2"))
+tryCatch(expr = { library("GSA")}, 
+         error = function(e) { 
+           install.packages("GSA")}, 
+         finally = library("GSA"))
+tryCatch(expr = { library("ggplot2")}, 
+         error = function(e) { 
+           install.packages("ggplot2")}, 
+         finally = library("ggplot2"))
+
+options(knitr.table.format = "html")
+```
+
+# Introduction
+
+Bulk RNA sequencing data on 24 pre-treatment breast cancer tumours performed by Wu et al. [@wu2021single] was downloaded from `GEO` with accession [GSE176078](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176078), and [associated publication](https://pmc.ncbi.nlm.nih.gov/articles/PMC9044823/).
+
+```{r}
+geo_id <- "GSE176078"
+```
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+gse <- getGEO(geo_id, GSEMatrix=FALSE)
+gpl <- names(gse@gpls)
+gpl_info <- Meta(getGEO(gpl))
+```
+
+This dataset was sequenced using `r gpl_info$title`, submitted on `r gpl_info$submission_date`.
+
+Breast cancers are clinically stratified based on:
+
+- expression of the estrogen receptor (*ER*), 
+- expression of the progesterone receptor (*PR*), and
+- overexpression of *HER2* (or amplification of *HER2* gene *ERBB2*)
+
+This results in the following three __clinical subtypes__ within this dataset:
+
+- Luminal ie. ER+; (*ER+*, *PR+/-*)
+- HER2+; (*HER2+*, *ER+/-*, *PR+/-*)
+- Triple Negative ie. TNBC; (*ER-*, *PR-*, *HER2-*)
+
+Breast cancers are also stratified on bulk transcriptomic profiling via PAM50 gene signatures [@parker2009supervised] describing five __molecular subtypes__: Luminal A, Luminal B, HER2-enriched, Basal-like, and Normal-like.
+
+The ~70-80% concordance between clinical and molecular subtypes motivated this study to improve functional understanding of breast cancer in a broader and more coherent sense.
+
+For this study, the clinical subtype conditions classified are as follows:
+
+- `HER2+` ; (*HER2+*, *ER-*, *PR+/-*)
+- `HER2+/ER+` ; (*HER2+*, *ER+*, *PR+/-*)
+- `ER+` ; (*HER2-*, *ER+*, *PR+/-*)
+- `TNBC` ; (*HER2-*, *ER-*, *PR-*)
+
+```{r, message=FALSE, echo=FALSE}
+normalized_counts <- read.table(
+  file=file.path(getwd(), geo_id,
+                 paste(geo_id, 
+                       "normalized_counts.txt", 
+                       sep="_")),
+  header=TRUE, sep="\t", 
+  stringsAsFactors=FALSE, 
+  check.names=FALSE)
+```
+
+The distribution of clinical subtypes across the 24 samples is shown in table 1.
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+types <- do.call(rbind,
+                 lapply(gse@gsms,,
+                        FUN=function(x, ...){
+                          c(x@header$title,
+                            x@header$characteristics_ch1)}))[,c(1,2)]
+types[,2] <- gsub(types[,2],
+                  pattern = "clinical_subtype: ",
+                  replacement = "")
+
+present <- colnames(normalized_counts)
+types <- types[which(types[,1] %in% present),]
+
+types <- cbind(types, grepl("^[H][E][R][2][+]", types[,2]))
+types <- cbind(types, grepl("[E][R][+]$", types[,2]))
+colnames(types) <- c("sample", "subtype", "her2", "er")
+types_df <- as.data.frame(types)
+```
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+her2 = length(which(types[,"subtype"] == "HER2+"))
+her2er = length(which(types[,"subtype"] == "HER2+/ER+"))
+tnbc = length(which(types[,"subtype"] == "TNBC"))
+er = length(which(types[,"subtype"] == "ER+"))
+total = sum(her2, her2er, tnbc, er)
+
+subtype_counts = data.frame(c(her2, her2er, tnbc, er, total),
+                            row.names = c("HER2+", 
+                                          "HER2+/ER+", 
+                                          "TNBC", 
+                                          "ER+", "Total"))
+subtype_counts$percentages = subtype_counts[,1] * 100 / total
+```
+
+```{r, echo=FALSE, results='asis'}
+subtype_counts %>%
+  knitr::kable(caption="Table 1: Clinical breast cancer subtype splits in our dataset", 
+      digits=2,
+      col.names=c("Count", "Percent")) %>%
+  kable_styling() %>%
+  row_spec(5, bold = T)
+```
+
+This leads to `r 400/24`% of samples containing `HER2` expression, and `r 1000/24`% of samples containing `ER` expression, with the overlaps of these representing `r 200/24`% of all samples; `r 200/4`% of those with `HER2`, `r 200/14`% of those with `ER`.
+
+The raw counts were cleaned, mapped to [HUGO Gene Nomenclature Committee (HGNC) Symbols](https://www.genenames.org/), and normalized to produce final counts which will be used for the duration of this report.
+
+Of the original `58387` genes, we were able to map and produce `28712` unversioned, unique genes, of which filtering outliers (keeping genes present in a minimum of `12` samples) resulted in `14800` genes remaining. This results in the following plots.
+
+The density plot shows the distribution of the cleaned, filtered, and normalized counts per million across all samples (varying colours). It displays a smooth curve as the result of our pre-processing.
+
+<br/>
+
+![Figure 1: Density of minimum 12 samples filtered and normalized CPM counts for 24 samples across four clinical subtypes of breast cancer tissue](/home/rstudio/projects/figures/GSE176078_filt_norm_density.png)
+
+<br/>
+Dispersion was calculated using `edgeR` to describe deviation of variance from the mean. The Biological Coefficient of Variation (BCV) is dispersion-squared, and represents the mean-variance relationship among genes.
+
+![Figure 2: Biological Coefficient of Variation (Dispersion squared) for 24 samples across four clinical subtypes of breast cancer tissue gene-wise](/home/rstudio/projects/figures/GSE176078_bcv.png)
+
+<br/>
+
+The normalized counts initialized above are formatted as shown by the subsection displayed in table 2.
+
+```{r, echo=FALSE, results='asis'}
+head(normalized_counts[1:5]) %>%
+  knitr::kable(caption="Table 2: Format of Normalized counts dataset as described above", digits=4) %>%
+  kable_styling()
+```
+
+# Differential Gene Expression
+
+Given our normalized expression dataset contains only grouped classification via clinical subtypes, these are the obvious choice for factors. But, due to the nature of these classifiers, the names themselves represent binary pairing of `HER2` and `ER` expression and absence (in a clinical setting). This provides some flexibility for analyzing differential expression since we really have two protein expressions, with their binary pairing as the clinical subtype classification.
+
+The Multi-Dimensional Scaling (MDS) plot was produced using `limma` on the normalized data, and it shows the distance between samples factored by the four distinct clinical subtypes.
+<br/>
+
+```{r mds-subtype, echo=FALSE, fig.height=5, fig.cap="Figure 3: Multi-Dimensional Scaling plot for clinical subtypes of breast cancer as classifications of overexpression, or lack thereof, of ER and HER2"}
+norm_matrix <- as.matrix(normalized_counts)
+
+limma::plotMDS(norm_matrix, labels=NULL, pch=1,
+               col = c("blue", "red", 
+                       "purple", "green")[factor(types_df$subtype)])
+title("Figure 3: MDS plot of clinical subtypes of breast cancer")
+legend("topleft",
+       legend=levels(factor(types_df$subtype)),
+       pch=c(1), col=c("blue", "red", "purple", "green"),
+       title = "Clinical subtype", bty='n', cex=0.75)
+```
+
+
+In the given MDS plot, notice that `blue` and `red` are opposites (`+/-` and `-/+`), `purple` is the intermediary between `blue` and `red` (`+/+`), whereas `green` represents `TNBC`: double negative (`-/-`). Although progesterone is a marker for breast cancer, its expression is not quantifiably present within the dataset, and so is not included. However, `TNBC` implies `PR` is not overly expressed as well.
+
+In terms of these colours in relation to each other, you can see some clustering appearing, although nothing is confidently distinct.
+
+## Calculate p-values for each gene. 
+
+I redefine the model to include the clinical subtypes of breast cancer as factors, both as four separate classifiers, and the binary pairing of over/under expression of `HER2` and `ER`.
+
+```{r}
+# aggregate model design
+model_design <- model.matrix(~ types_df$subtype)
+
+# split model design (binary pairs)
+splt_model_design <- model.matrix(~ types_df$her2 + types_df$er)
+```
+
+Given both design choices, I used `edgeR`'s `Quasi likelihood model` to create quasi-likelihood fits.
+
+```{r}
+# normalized counts grouped by clinical subtype
+d <- DGEList(counts=norm_matrix, 
+             group=types_df$subtype)
+
+# estimate dispersion on subtype model design
+d_ <- estimateDisp(d, model_design)
+qlfit <- glmQLFit(d_, model_design)
+
+# in parallel, estimate dispersion on binary pairing model design
+d_splt <- estimateDisp(d, splt_model_design)
+qlfit_splt <- glmQLFit(d_splt, splt_model_design)
+```
+
+Now, we can use `glmQLFTest` to calculate the differential expression according to this model.
+
+```{r}
+# fit subtype model design
+qlf.subtypes <- glmQLFTest(qlfit)
+```
+
+```{r}
+# fit split model design
+qlf.her2p <- glmQLFTest(qlfit_splt, 
+                        coef='types_df$erTRUE')
+qlf.erp <- glmQLFTest(qlfit_splt, 
+                      coef='types_df$her2TRUE')
+```
+
+At this point, we analyze the calculated p-values and aggregate our top hits for each model.
+
+```{r}
+# top tags for aggregate model design
+top_hits <- topTags(qlf.subtypes, 
+                    sort.by = "PValue",
+                    n = nrow(normalized_counts))
+
+# tog tags for split model design
+top_her2p <- topTags(qlf.her2p,
+                     sort.by = "PValue",
+                     n = nrow(normalized_counts))
+top_erp <- topTags(qlf.erp,
+                   sort.by = "PValue",
+                   n = nrow(normalized_counts))
+```
+
+### How many genes were significantly differentially expressed?
+
+```{r, echo=FALSE}
+# length(which(top_hits$table$PValue < 0.05))
+# length(which(top_her2p$table$PValue < 0.05))
+# length(which(top_perp$table$PValue < 0.05))
+```
+
+For our three model designs (one aggregate, and two binary splits), the following number of genes were significantly differentially expressed before correction.
+
+```{r, echo=FALSE, fig.cap="Table 3: Number of P-Values that are significantly differentially expressed, ie. < 0.05, for the three different model designs"}
+pvals_df <- data.frame(
+  c(length(which(top_hits$table$PValue < 0.05)),
+    length(which(top_her2p$table$PValue < 0.05)),
+    length(which(top_erp$table$PValue < 0.05))),
+  row.names = c("Aggregate across subtypes", "HER2 expression", "ER expression")
+)
+
+pvals_df %>%
+  knitr::kable(caption="Table 3: Number of P-Values that are significantly differentially expressed for the three different model designs",
+               col.names=c("Significantly Differentially Expressed Genes")) %>%
+  kable_styling()
+```
+
+### What thresholds did you use and why?
+
+A threshold of `0.05` for p-values is very standard. It implies that statistically we will only achieve this outcome `5`% of the time assuming the null hypothesis is true (our null hypothesis being that there is no differential expression between the clinical subtypes in these genes).
+
+If I continued this analysis and found that I had a lot of genes remaining, I could lower the threshold, but `0.05` is a solid starting point with that in mind.
+
+## Multiple hypothesis testing
+
+`edgeR`'s analysis provides a `FDR` value, which implies Benjamini-Hochberg, however I wanted to independently verify.
+
+```{r}
+corrected_top_hits <- p.adjust(top_hits$table$PValue, 
+                               method = "BH", 
+                               n = nrow(normalized_counts))
+length(which(corrected_top_hits < 0.05))
+```
+
+So, using this correction method, only 3 genes pass correction for significant differential expression.
+
+### Which method did you use? and why?
+
+As described, the False Discovery Rates provided by our analysis match my independent understanding of the __Benjamini-Hochberg__ method. 
+
+This method is very applicable to our use-case since it is less stringent than Bonferroni when it comes to having a large number of hypotheses. It is best practice to use Benjamini-Hochberg first to see which of your genes pass correction, and if you need a more stringent corrective method, you can consider using Bonferroni. However, Bonferroni is said to be more useful when you are testing a smaller number of hypotheses which is generally not the case for RNA sequencing data.
+
+### How many genes passed correction?
+
+For our two model designs, the following number of genes passed correction for each classifier.
+
+```{r, echo=FALSE}
+# length(which(top_hits$table$FDR < 0.05))
+# length(which(top_her2p$table$FDR < 0.05))
+# length(which(top_erp$table$FDR < 0.05))
+```
+
+```{r, echo=FALSE, fig.cap="Table 4: Number of P-Values that are significantly differentially expressed, ie. < 0.05, before and after Benjamini-Hochberg correction for the three different model designs"}
+pvals_df <- data.frame(
+  c(length(which(top_hits$table$PValue < 0.05)),
+    length(which(top_her2p$table$PValue < 0.05)),
+    length(which(top_erp$table$PValue < 0.05))),
+  row.names = c("Aggregate across subtypes", "HER2 expression", "ER expression")
+)
+pvals_df <- cbind(pvals_df, 
+                  c(length(which(top_hits$table$FDR < 0.05)),
+                    length(which(top_her2p$table$FDR < 0.05)),
+                    length(which(top_erp$table$FDR < 0.05))))
+
+pvals_df %>%
+  knitr::kable(caption="Table 4: Number of P-Values that are significantly differentially expressed for the three different model designs",
+               col.names=c("Significantly Differentially Expressed Genes", 
+                           "Significantly Differentially Expressed Genes after correction")) %>%
+  kable_styling()
+```
+
+There is clearly a large reduction in number of genes significantly differentially expressed.
+
+For the aggregate model of clinical subtypes, only `3` genes passed correction for false discovery. __No__ genes passed correction for `HER2` expression association, whereas `11` genes passed correction for `ER` expression association.
+
+The genes and their associated values are shown in the tables below.
+
+```{r, echo=FALSE, fig.cap="Table 5: Genes significantly differentially expressed after correction across clinical subtypes, aggregate design"}
+top_hits$table[top_hits$table$FDR < 0.05,]
+```
+
+```{r, echo=FALSE, fig.cap="Table 6: Genes significantly differentially expressed after correction associated with ER overexpression"}
+top_erp$table[top_erp$table$FDR < 0.05,]
+```
+
+## Amount of differentially expressed genes
+
+### MA Plot
+
+An MA Plot demonstrates the log-fold change in contrast to the log-concentration for our counts. I use `edgeR`'s MA plot functionality.
+
+```{r, echo=FALSE, fig.height=6, fig.cap="Figure 4: MA Plot of significantly differentially expressed genes after correction across clinical subtypes, aggregate design"}
+edgeR::maPlot(logAbundance=top_hits$table$logCPM, 
+              logFC=top_hits$table$logFC,
+              de.tags=which(top_hits$table$FDR < 0.05),
+              lowess=TRUE,
+              xlab="log(counts per million)",
+              ylab="log(fold-change)",
+              main="Figure 4: MA Plot of significantly differentially 
+              expressed genes after correction across 
+              clinical subtypes, aggregate design")
+legend("topright", title="Significance",
+       legend=c("not significant", 
+                "significant after correction"), 
+       col=c("black", "red"), pch=1, cex=0.8)
+```
+
+```{r, echo=FALSE, fig.height=6, fig.cap="Figure 5: MA Plot of significantly differentially expressed genes after correction associated with ER expression"}
+edgeR::maPlot(logAbundance=top_erp$table$logCPM, 
+              logFC=top_erp$table$logFC,
+              de.tags=which(top_erp$table$FDR < 0.05),
+              lowess=TRUE,
+              xlab="log(counts per million)",
+              ylab="log(fold-change)",
+              main="Figure 5: MA Plot of significantly differentially 
+              expressed genes after correction 
+              associated with ER expression")
+legend("topright", title="Significance",
+       legend=c("not significant", 
+                "significant after correction"), 
+       col=c("black", "red"), pch=1, cex=0.8)
+```
+
+### Volcano Plot
+
+The volcano plot provides another visual for the spread of our differentially expressed genes and their significance, both before and after correction.
+
+The green points are those with significant p-values before correction, with the red points being significant genes after correction.
+
+```{r, echo=FALSE, fig.height=6, fig.cap="Figure 6: Volcano Plot of significantly differentially expressed genes after correction across clinical subtypes, aggregate design"}
+plot(top_hits$table$logFC, -10*log10(top_hits$table$PValue),
+     main="Figure 6: Volcano Plot of significantly differentially 
+     expressed genes after correction 
+     across clinical subtypes, aggregate design",
+     xlab="log(fold change)",
+     ylab="-10^log(p-value)")
+# highlight differentially expressed genes
+points(top_hits$table$logFC[which(top_hits$table$PValue < 0.05)],
+       -10*log10(top_hits$table$PValue)[which(top_hits$table$PValue < 0.05)],
+       col="green")
+points(top_hits$table$logFC[which(top_hits$table$FDR < 0.05)],
+       -10*log10(top_hits$table$PValue)[which(top_hits$table$FDR < 0.05)],
+       col="red")
+legend("topleft", title="Significance",
+       legend=c("not significant", 
+                "significant before correction", 
+                "significant after correction"), 
+       col=c("black", "green", "red"), pch=1, cex=0.8)
+```
+
+```{r, echo=FALSE, fig.height=6, fig.cap="Figure 7: Volcano Plot of significantly differentially expressed genes after correction associated with ER expression"}
+plot(top_erp$table$logFC, -10*log10(top_erp$table$PValue),
+     main="Figure 7: Volcano Plot of significantly differentially 
+     expressed genes after correction 
+     associated with ER expression",
+     xlab="log(fold change)",
+     ylab="-10^log(p-value)")
+# highlight differentially expressed genes
+points(top_erp$table$logFC[which(top_erp$table$PValue < 0.05)],
+       -10*log10(top_erp$table$PValue)[which(top_erp$table$PValue < 0.05)],
+       col="green")
+points(top_erp$table$logFC[which(top_erp$table$FDR < 0.05)],
+       -10*log10(top_erp$table$PValue)[which(top_erp$table$FDR < 0.05)],
+       col="red")
+legend("topleft", title="Significance",
+       legend=c("not significant", 
+                "significant before correction", 
+                "significant after correction"), 
+       col=c("black", "green", "red"), pch=1, cex=0.8)
+```
+
+This volcano plot of differentially expressed genes with regards to `ER-` and `ER+` is very interesting given its strong skew towards up-regulation.
+
+```{r, echo=FALSE, fig.height=6, fig.cap="Figure 8: Volcano Plot of significantly differentially expressed genes after correction associated with HER2 expression"}
+plot(top_her2p$table$logFC, -10*log10(top_her2p$table$PValue),
+     main="Figure 8: Volcano Plot of significantly differentially 
+     expressed genes after correction 
+     associated with HER2 expression",
+     xlab="log(fold change)",
+     ylab="-10^log(p-value)")
+# highlight differentially expressed genes
+points(top_her2p$table$logFC[which(top_her2p$table$PValue < 0.05)],
+       -10*log10(top_her2p$table$PValue)[which(top_her2p$table$PValue < 0.05)],
+       col="green")
+points(top_her2p$table$logFC[which(top_her2p$table$FDR < 0.05)],
+       -10*log10(top_her2p$table$PValue)[which(top_her2p$table$FDR < 0.05)],
+       col="red")
+legend("topleft", title="Significance",
+       legend=c("not significant", 
+                "significant before correction", 
+                "significant after correction"), 
+       col=c("black", "green", "red"), pch=1, cex=0.8)
+```
+
+## Visualizing top hits
+
+### Heatmap
+
+Aggregating our top hits across clinical subtypes into a heatmap, we can see the expression visually as shown, along with a heatmap annotation corresponding to each binary pairing represented by the subtype classifier.
+
+```{r, echo=FALSE}
+tops <- rownames(qlf.subtypes$table)[
+  qlf.subtypes$table$PValue < 0.05
+]
+top_hits_matrix = t(scale(
+  t(norm_matrix[which(rownames(norm_matrix) %in% tops),])
+))
+
+# colours
+if (min(top_hits_matrix) == 0) {
+  heatmap_col = colorRamp2(c(0, max(top_hits_matrix)),
+                           c("white", "red"))
+} else {
+  heatmap_col = colorRamp2(c(min(top_hits_matrix), 0, max(top_hits_matrix)),
+                           c("blue", "white", "red"))
+}
+
+# annotations
+her2_col <- c("lightgreen", "red")
+names(her2_col) <- c('TRUE', 'FALSE')
+er_col <- c("darkgreen", "pink")
+names(er_col) <- c('TRUE', 'FALSE')
+
+types_df$her2 <- factor(types_df$her2, levels = c('TRUE','FALSE'))
+types_df$er <- factor(types_df$er, levels = c('TRUE','FALSE'))
+
+heatmap_annotation <- ComplexHeatmap::HeatmapAnnotation(
+  df = data.frame(her2 = types_df$her2,
+                  er = types_df$er),
+  col = list(her2 = her2_col, er = er_col),
+  show_legend=TRUE
+)
+
+heatmap <- ComplexHeatmap::Heatmap(as.matrix(top_hits_matrix),
+                                   cluster_rows=TRUE,
+                                   cluster_columns=TRUE,
+                                   show_row_dend=TRUE, 
+                                   show_column_dend=TRUE,
+                                   col=heatmap_col, 
+                                   show_column_names=FALSE,
+                                   show_row_names=FALSE, 
+                                   show_heatmap_legend=TRUE,
+                                   name="colour scale",
+                                   top_annotation=heatmap_annotation,
+                                   column_title="Figure 9: Heatmap of top hits across 
+                                   clinical subtypes, aggregate design")
+```
+
+```{r, echo=FALSE, fig.height=8, fig.cap="Figure 9: Heat map of top hits across clinical subtypes, aggregate design with binary labelling"}
+heatmap
+```
+
+Specifically for `ER` overexpression or lack thereof, I added an additional heatmap.
+
+```{r, echo=FALSE}
+tops_er <- rownames(qlf.erp$table)[
+  qlf.erp$table$PValue < 0.05
+]
+tops_er_matrix = t(scale(
+  t(norm_matrix[which(rownames(norm_matrix) %in% tops_er),])
+))
+
+# colours
+if (min(tops_er_matrix) == 0) {
+  heatmap_col = colorRamp2(c(0, max(tops_er_matrix)),
+                           c("white", "red"))
+} else {
+  heatmap_col = colorRamp2(c(min(tops_er_matrix), 0, max(tops_er_matrix)),
+                           c("blue", "white", "red"))
+}
+
+heatmap_er <- ComplexHeatmap::Heatmap(as.matrix(tops_er_matrix),
+                                      cluster_rows=TRUE,
+                                      cluster_columns=TRUE,
+                                      show_row_dend=TRUE, 
+                                      show_column_dend=TRUE,
+                                      col=heatmap_col, 
+                                      show_column_names=FALSE,
+                                      show_row_names=FALSE, 
+                                      show_heatmap_legend=TRUE,
+                                      name="colour scale",
+                                      top_annotation=heatmap_annotation,
+                                      column_title="Figure 10: Heatmap of top hits 
+                                      associated with ER overexpression")
+```
+
+```{r, echo=FALSE, fig.height=8, fig.cap="Figure 10: Heatmap of top hits associated with ER overexpression"}
+heatmap_er
+```
+
+### Do conditions cluster together? Explain.
+
+In figure 9, there is very visibly a cluster demonstrated between heat intensity and `ER` overexpression or lack thereof with the genes primarily in the top half being generally highly expressed in lack of `ER`, and lowly expressed in overexpression of `ER`. Similarly, the lower half of genes primarily follow the opposite trend; lower expression on `ER-` and higher expression on `ER+`.
+
+In figure 10, it is more difficult to see the cluster patterns. Sample 1 has very intense RNA expressions in the top half of genes, but its matching `HER2+/ER-` subtype lacks this at all. This implies the association goes in a broader scale than lack of `ER` for these genes. Despite 11 genes being associated with overexpression of `ER`, it does not appear to show a visible cluster on the heatmap like the aggregate design in figure 9 does pretty well.
+
+# Thresholded Over-Representation Analysis
+
+With our significantly up-regulated, and down-regulated gene-sets, we will run a thresholded gene-set enrichment analysis.
+
+We have `r length(which(qlf.subtypes$table$PValue < 0.05 & qlf.subtypes$table$logFC > 0))` up-regulated genes, and `r length(which(qlf.subtypes$table$PValue < 0.05 & qlf.subtypes$table$logFC < 0))` down-regulated genes for our aggregate model design across all clinical subtypes.
+
+```{r, echo=FALSE}
+# create non-thresholded gene sets
+nt_geneset <- qlf.subtypes$table
+nt_geneset[,"rank"] <- -log10(nt_geneset$PValue) *
+  sign(nt_geneset$logFC)
+nt_geneset <- nt_geneset[order(nt_geneset$rank),]
+
+write.table(x=data.frame(gene_name=rownames(nt_geneset),
+                         F_stat=nt_geneset$rank),
+            file=file.path(getwd(), "subtypes_ranked_genelist.txt"),
+            sep="\t", row.names=FALSE, col.names=FALSE, quote=FALSE)
+```
+
+```{r, echo=FALSE}
+# create thresholded gene sets
+upreg <- rownames(nt_geneset)[which(nt_geneset$PValue < 0.05
+                                    & nt_geneset$logFC > 0)]
+downreg <- rownames(nt_geneset)[which(nt_geneset$PValue < 0.05
+                                      & nt_geneset$logFC < 0)]
+
+write.table(x=upreg,
+            file=file.path(getwd(), "upreg_genes_aggregate.txt"),
+            sep="\t", row.names=FALSE, col.names=FALSE, quote=FALSE)
+write.table(x=downreg,
+            file=file.path(getwd(), "downreg_genes_aggregate.txt"),
+            sep="\t", row.names=FALSE, col.names=FALSE, quote=FALSE)
+```
+
+```{r, echo=FALSE}
+gost_res <- function(query) {
+  res <- gost(query = query,
+                      significant=FALSE, # set our own threshold
+                      ordered_query = TRUE, # ordered by rank
+                      exclude_iea=TRUE, # exclude elec GO annotations
+                      correction_method = "fdr", # BH
+                      organism = "hsapiens",
+                      source = c("REAC","WP","GO:BP", 
+                                 "GO:CC", "GO:MF", "KEGG"))
+  return(res)
+}
+```
+
+I query our genesets using `gProfiler`'s `GOSt`.
+
+```{r}
+# up and down regulated thresholded genes
+all <- gost_res(unique(c(upreg, downreg)))
+# only up regulated thresholded genes
+up <- gost_res(upreg)
+# only down regulated thresholded genes
+down <- gost_res(downreg)
+```
+
+```{r, echo=FALSE}
+all$result[1:5,c(3, 9, 11)] %>%
+  knitr::kable(caption="Table 7: Head of thresholded up and down regulated genes from g:GOSt") %>%
+  kable_styling
+```
+
+```{r, echo=FALSE}
+up$result[1:5,c(3, 9, 11)] %>%
+  knitr::kable(caption="Table 8: Head of thresholded up-regulated genes from g:GOSt") %>%
+  kable_styling
+```
+
+```{r, echo=FALSE}
+down$result[1:5,c(3, 9, 11)] %>%
+  knitr::kable(caption="Table 9: Head of thresholded down-regulated genes from g:GOSt") %>%
+  kable_styling
+```
+
+## Which method did you choose and why?
+
+I chose to use `g:Profiler` with R since it was well documented by Ruth Isserlin [@risserlin] and I had familiarity with it through the journal entry. 
+
+`g:Profiler` provides an `ORA` (over-representation analysis) method, and this is exactly the method I want to perform on my un-thresholded and thresholded data.
+
+## Which annotation data did you use and why? 
+
+I chose the following annotation sources to get the most comprehensive results for our functional enrichment analysis relative to biological processes and gene ontology:
+
+* `GO:BP` : `Gene Ontology: Biological Processes`
+* `REAC` : `Reactome`
+* `WP` : `WikiPathways`
+* `GO:CC` : `Gene Ontology: Cellular Components`
+* `GO:MF` : `Gene Ontology: Molecular Function`
+* `KEGG` : `Kyoto Encyclopedia of Genes and Genomes`
+
+`GO:BP`, `REAC`, and `WP` were recommended by Professor Isserlin, however I ran the ORA using these and found nothing jumped out from the resulting plots. As such, I revisited to expand the scope of annotation sources in hopes for a more informative result.
+
+### What version of the annotation are you using?
+
+```{r, echo=FALSE}
+version_info <- gprofiler2::get_version_info(organism = "hsapiens")
+gobp <- version_info$sources$`GO:BP`
+gocc <- version_info$sources$`GO:CC`
+gomf <- version_info$sources$`GO:MF`
+```
+
+For `g:Profiler` version information, I used:
+
+* `g:Profiler` version: __`r version_info$gprofiler_version`__
+* `biomaRt` version: __`r version_info$biomart_version`__
+
+For the annotation sources selected in my query, I used:
+
+* `GO:BP` version __`r gobp$version`__ 
+* `REAC` version __`r version_info$sources$REAC$version`__
+* `WP` version __`r version_info$sources$WP$version`__
+* `GO:CC` version __`r gocc$version`__ 
+* `GO:MF` version __`r gomf$version`__ 
+* `KEGG` version __`r version_info$sources$KEGG$version`__
+
+## How many gene-sets were returned with what thresholds?
+
+```{r, echo=FALSE, results='hide'}
+threshold_res <- function(result, min, max, intersection) {
+  ret <- subset(result, term_size >= min &
+                term_size <= max &
+                intersection_size >= intersection,
+                select = c(term_id, term_name, p_value, significant))
+  return(ret)
+}
+```
+
+```{r, echo=FALSE}
+threshold_df <- data.frame(
+  c(dim(threshold_res(all$result, 3, 100, 5))[1],
+    dim(threshold_res(up$result, 3, 100, 5))[1],
+    dim(threshold_res(down$result, 3, 100, 5))[1]),
+  c(dim(threshold_res(all$result, 3, 250, 5))[1],
+    dim(threshold_res(up$result, 3, 250, 5))[1],
+    dim(threshold_res(down$result, 3, 250, 5))[1]),
+  c(dim(threshold_res(all$result, 3, 1000, 5))[1],
+    dim(threshold_res(up$result, 3, 1000, 5))[1],
+    dim(threshold_res(down$result, 3, 1000, 5))[1]),
+  c(dim(threshold_res(all$result, 3, 10000, 5))[1],
+    dim(threshold_res(up$result, 3, 10000, 5))[1],
+    dim(threshold_res(down$result, 3, 10000, 5))[1]),
+  row.names=c("Up & Down", "Up", "Down"))
+
+threshold_df %>%
+  knitr::kable(caption="Table 10: Gene-set sizes for different maximum thresholds with minimum intersection of 5",
+               col.names=c("Max 100", "Max 250", "Max 1000", "Max 100000")) %>%
+  kable_styling()
+```
+
+```{r, echo=FALSE}
+threshold_df <- data.frame(
+  c(dim(threshold_res(all$result, 3, 100, 10))[1],
+    dim(threshold_res(up$result, 3, 100, 10))[1],
+    dim(threshold_res(down$result, 3, 100, 10))[1]),
+  c(dim(threshold_res(all$result, 3, 250, 10))[1],
+    dim(threshold_res(up$result, 3, 250, 10))[1],
+    dim(threshold_res(down$result, 3, 250, 10))[1]),
+  c(dim(threshold_res(all$result, 3, 1000, 10))[1],
+    dim(threshold_res(up$result, 3, 1000, 10))[1],
+    dim(threshold_res(down$result, 3, 1000, 10))[1]),
+  c(dim(threshold_res(all$result, 3, 10000, 10))[1],
+    dim(threshold_res(up$result, 3, 10000, 10))[1],
+    dim(threshold_res(down$result, 3, 10000, 10))[1]),
+  row.names=c("Up & Down", "Up", "Down"))
+
+threshold_df %>%
+  knitr::kable(caption="Table 11: Gene-set sizes for different maximum thresholds with minimum intersection of 10",
+               col.names=c("Max 100", "Max 250", "Max 1000", "Max 100000")) %>%
+  kable_styling()
+```
+
+After thresholding with maximum value of 100 and minimum intersection of 10, we can see the terms remain similar.
+
+```{r, echo=FALSE}
+threshold_res(all$result, 3, 100, 10)[1:5,] %>%
+  knitr::kable(caption="Table 12: Head of thresholded up and down-regulated genes from ORA") %>%
+  kable_styling
+```
+
+```{r, echo=FALSE}
+threshold_res(up$result, 3, 100, 10)[1:5,] %>%
+  knitr::kable(caption="Table 13: Head of thresholded up-regulated genes from ORA") %>%
+  kable_styling
+```
+
+```{r, echo=FALSE}
+threshold_res(down$result, 3, 100, 10)[1:5,] %>%
+  knitr::kable(caption="Table 14: Head of thresholded down-regulated genes from ORA") %>%
+  kable_styling
+```
+
+As such, we find that up-regulated genes have some significant gene-sets after thresholding, whereas our down-regulated struggles to maintain significant values.
+
+Our combination table shows us overlap with the up-regulated genes, further supporting the significance of our up-regulation skewed results.
+
+## Comparing up-regulated and down-regulated separate vs. together
+
+The following figures demonstrate the over-representation analysis plots for both up & down regulated, up-regulated, and down-regulated genes respectively with only a couple of points manually highlighted.
+
+![Figure 11: Over-representation analysis of Up and Down regulated significantly differentially expressed genes](/home/rstudio/projects/figures/all_ora.png)
+
+```{r, echo=FALSE, fig.height=7, fig.cap="Figure 11: Over-representation analysis of Up and Down-regulated significantly differentially expressed genes"}
+# all_plot <- gostplot(all, capped = FALSE, interactive = FALSE)
+# all_pub <- publish_gostplot(all_plot,
+#                             highlight_terms = c("GO:0045296",
+#                                                 "GO:0031981", 
+#                                                 "GO:0140513") ) +
+#   ggtitle("Figure 11: Over-representation analysis of Up and Down-regulated significantly differentially expressed genes")
+```
+<br/>
+
+![Figure 12: Over-representation analysis of Up-regulated significantly differentially expressed genes](/home/rstudio/projects/figures/up_ora.png)
+
+```{r, echo=FALSE, fig.height=7, fig.cap="Figure 12: Over-representation analysis of Up-regulated significantly differentially expressed genes"}
+# up_plot <- gostplot(up, capped = FALSE, interactive = FALSE)
+# up_pub <- publish_gostplot(up_plot, 
+#                            highlight_terms = c("GO:0045296",
+#                                                "GO:0031981", 
+#                                                "GO:0140513")) +
+#   ggtitle("Figure 12: Over-representation analysis of Up-regulated significantly differentially expressed genes")
+```
+<br/>
+
+![Figure 13: Over-representation analysis of Down-regulated significantly differentially expressed genes](/home/rstudio/projects/figures/down_ora.png)
+
+```{r, echo=FALSE, fig.height=7, fig.cap="Figure 13: Over-representation analysis of Down-regulated significantly differentially expressed genes"}
+# down_plot <- gostplot(down, capped = FALSE, interactive = FALSE)
+# down_pub <- publish_gostplot(down_plot, 
+#                              highlight_terms = c("GO:0045296",
+#                                                  "GO:0031981", 
+#                                                  "GO:0140513")) +
+#   ggtitle("Figure 12: Over-representation analysis of Down-regulated significantly differentially expressed genes")
+```
+
+### How do these results compare?
+
+Since the up-regulated gene results tend to exceed the down-regulated gene results in terms of term significance, the combined plot appears to more closely resemble the up-regulated plot.
+
+In our case, ORA of up and down-regulated genes in combination did not have a large effect on the results, but this is because the up-regulated genes overshadow the down-regulated. If this were a different case, we could see the difference between the up- and down-regulated plots overshadowed and melted by the combination plot. As such, it is important to look at both up- and down-regulated separately.
+
+Although, in terms of our results of this analysis, although some terms are significant according to our arbitrary threshold, none of them are strikingly so with maximum -log(adjusted p-values) only reaching up to about 3 maximum, whereas plots seen with stronger functional enrichment presence reach up much higher towards 10-16+.
+
+# Interpretation
+
+## Do the over-representation results support conclusions or mechanisms discussed in the original paper?
+
+The original paper includes substantially more processing of this data in addition to the single-cell RNA sequencing data they acquired in tandem, so it is difficult to say whether this supports those results. None of my significant differentially expressed genes appear throughout the report whatsoever. The discussion and results section for the bulk RNA-sequencing is very lacklustre compared to the rest of the analysis and results found by spatial resolution of single-cell RNA sequencing. The RNA sequencing heatmap appears possibly similar to mine, although they used scaled mean interaction score and subtyped only for `ER` and `TNBC` as opposed to all clinical subtypes. I can understand this approach since the `HER2` subtype presence was relatively small compared to the rest of the samples.
+
+Conclusively, there is not much functional enrichment apparently distinguishing the classified clinical subtypes of breast cancer; although if we had to look at the most significant term(s), our analysis would draw our attention to cadherin binding, ie. [GO:0045296](https://amigo.geneontology.org/amigo/term/GO:0045296), of which is not present in the paper's conclusions.
+
+## Can you find evidence, ie. publications, to support some of the results that you see? How does this evidence support your results?
+
+Continuing with the most significant GO term from our analysis--cadherin binding--there is substantial evidence that cadherins are integral to mammary gland function, and misexpression of these leads to increased motility and consequently greater likelihood of metastases [@derycke2004n]. E-cadherin is one of the most widely expressed tumour suppressors in breast cancer, however cadherin-binding on its own is rather vague and difficult to draw conclusions from. We can conclude, however, that cadherins are associated with breast cancer in multiple ways, and so cadherin-binding may be a distinguishable functional enrichment between clinical subtypes.
+
+Interestingly, __one__ of our __three__ significantly differentially expressed genes after correction across clinical subtypes of breast cancer is `ANXA8` which is associated with breast cancer [@mala]. Rosetti et al. suggested `ANXA8` is significantly higher in `ER-` subtypes as opposed to `ER+` subtypes [@rossetti2016harnessing] but instead of finding that in our results, we noticed `ANXA8` was significantly differentially expressed across all clinical subtypes classified in our study. This warrants some investigation into why `ANXA8` is expressed differentially in `ER` subtypes according to research, yet selectively expressed differentially across all four of our classified clinical subtypes of breast cancer.
+
+In terms of significantly differentially expressed genes in regards to `ER-` and `ER+` specifically, the most significant gene is `EPHA3` which has been shown to be more up-regulated in `ER+` breast cancers [@liang2021expression], which directly supports my findings.
+
+So ultimately, the paper's results are ..., however there is some associated evidence that suggests my results are not completely incorrect.
+
+# Acknowledgments
+
+This paper makes use of packages `knitr` [@knitr2015], `BiocManager` [@biocmanager], `GEOquery` [@R-GEOquery], `kableExtra` [@kableextra], `edgeR` [@R-edgeR], `limma` [@limma2015], `ComplexHeatmap` [@complexheatmap], `circlize` [@circlize], `gprofiler2` [@gprofiler2], `GSA` [@gsa], & `ggplot2` [@R-ggplot2].
+
+# Bibliography
