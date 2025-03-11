@@ -4,13 +4,14 @@ subtitle: "Differential Gene Expression and Preliminary ORA"
 author: "Annabella Bregazzi"
 date: "`r Sys.Date()`"
 output: 
-  html_document:
+  html_notebook:
     theme: cosmo
     toc: yes
     toc_float:
       collapsed: true
     number_sections: true
     fig_caption: true
+    code_folding: hide
 bibliography: a2_references.bib
 csl: biomed-central.csl
 link-citations: true
@@ -360,9 +361,9 @@ top_erp$table[top_erp$table$FDR < 0.05,]
 
 ### MA Plot
 
-An MA Plot demonstrates the log-fold change in contrast to the log-concentration for our counts. I use `edgeR`'s MA plot functionality.
+An MA Plot demonstrates the log-fold change in contrast to the log-concentration for our counts. I use `edgeR`'s MA plot functionality for both model designs.
 
-```{r, echo=FALSE, fig.height=6, fig.cap="Figure 4: MA Plot of significantly differentially expressed genes after correction across clinical subtypes, aggregate design"}
+```{r, fig.height=6, fig.cap="Figure 4: MA Plot of significantly differentially expressed genes after correction across clinical subtypes, aggregate design"}
 edgeR::maPlot(logAbundance=top_hits$table$logCPM, 
               logFC=top_hits$table$logFC,
               de.tags=which(top_hits$table$FDR < 0.05),
@@ -378,7 +379,7 @@ legend("topright", title="Significance",
        col=c("black", "red"), pch=1, cex=0.8)
 ```
 
-```{r, echo=FALSE, fig.height=6, fig.cap="Figure 5: MA Plot of significantly differentially expressed genes after correction associated with ER expression"}
+```{r, fig.height=6, fig.cap="Figure 5: MA Plot of significantly differentially expressed genes after correction associated with ER expression"}
 edgeR::maPlot(logAbundance=top_erp$table$logCPM, 
               logFC=top_erp$table$logFC,
               de.tags=which(top_erp$table$FDR < 0.05),
@@ -400,7 +401,7 @@ The volcano plot provides another visual for the spread of our differentially ex
 
 The green points are those with significant p-values before correction, with the red points being significant genes after correction.
 
-```{r, echo=FALSE, fig.height=6, fig.cap="Figure 6: Volcano Plot of significantly differentially expressed genes after correction across clinical subtypes, aggregate design"}
+```{r, fig.height=6, fig.cap="Figure 6: Volcano Plot of significantly differentially expressed genes after correction across clinical subtypes, aggregate design"}
 plot(top_hits$table$logFC, -10*log10(top_hits$table$PValue),
      main="Figure 6: Volcano Plot of significantly differentially 
      expressed genes after correction 
@@ -421,7 +422,7 @@ legend("topleft", title="Significance",
        col=c("black", "green", "red"), pch=1, cex=0.8)
 ```
 
-```{r, echo=FALSE, fig.height=6, fig.cap="Figure 7: Volcano Plot of significantly differentially expressed genes after correction associated with ER expression"}
+```{r, fig.height=6, fig.cap="Figure 7: Volcano Plot of significantly differentially expressed genes after correction associated with ER expression"}
 plot(top_erp$table$logFC, -10*log10(top_erp$table$PValue),
      main="Figure 7: Volcano Plot of significantly differentially 
      expressed genes after correction 
@@ -444,7 +445,7 @@ legend("topleft", title="Significance",
 
 This volcano plot of differentially expressed genes with regards to `ER-` and `ER+` is very interesting given its strong skew towards up-regulation.
 
-```{r, echo=FALSE, fig.height=6, fig.cap="Figure 8: Volcano Plot of significantly differentially expressed genes after correction associated with HER2 expression"}
+```{r, fig.height=6, fig.cap="Figure 8: Volcano Plot of significantly differentially expressed genes after correction associated with HER2 expression"}
 plot(top_her2p$table$logFC, -10*log10(top_her2p$table$PValue),
      main="Figure 8: Volcano Plot of significantly differentially 
      expressed genes after correction 
@@ -465,13 +466,15 @@ legend("topleft", title="Significance",
        col=c("black", "green", "red"), pch=1, cex=0.8)
 ```
 
+Both the aggregate model design, and the `HER2` design are fairly evenly distributed around 0.
+
 ## Visualizing top hits
 
 ### Heatmap
 
 Aggregating our top hits across clinical subtypes into a heatmap, we can see the expression visually as shown, along with a heatmap annotation corresponding to each binary pairing represented by the subtype classifier.
 
-```{r, echo=FALSE}
+```{r}
 tops <- rownames(qlf.subtypes$table)[
   qlf.subtypes$table$PValue < 0.05
 ]
@@ -525,7 +528,7 @@ heatmap
 
 Specifically for `ER` overexpression or lack thereof, I added an additional heatmap.
 
-```{r, echo=FALSE}
+```{r}
 tops_er <- rownames(qlf.erp$table)[
   qlf.erp$table$PValue < 0.05
 ]
@@ -573,40 +576,28 @@ With our significantly up-regulated, and down-regulated gene-sets, we will run a
 
 We have `r length(which(qlf.subtypes$table$PValue < 0.05 & qlf.subtypes$table$logFC > 0))` up-regulated genes, and `r length(which(qlf.subtypes$table$PValue < 0.05 & qlf.subtypes$table$logFC < 0))` down-regulated genes for our aggregate model design across all clinical subtypes.
 
-```{r, echo=FALSE}
+```{r}
 # create non-thresholded gene sets
 nt_geneset <- qlf.subtypes$table
-nt_geneset[,"rank"] <- -log10(nt_geneset$PValue) *
-  sign(nt_geneset$logFC)
+nt_geneset[,"rank"] <- -log10(nt_geneset$PValue) * sign(nt_geneset$logFC)
 nt_geneset <- nt_geneset[order(nt_geneset$rank),]
-
-write.table(x=data.frame(gene_name=rownames(nt_geneset),
-                         F_stat=nt_geneset$rank),
-            file=file.path(getwd(), "subtypes_ranked_genelist.txt"),
-            sep="\t", row.names=FALSE, col.names=FALSE, quote=FALSE)
 ```
 
-```{r, echo=FALSE}
-# create thresholded gene sets
+```{r}
+# create thresholded up and down gene sets
 upreg <- rownames(nt_geneset)[which(nt_geneset$PValue < 0.05
                                     & nt_geneset$logFC > 0)]
 downreg <- rownames(nt_geneset)[which(nt_geneset$PValue < 0.05
                                       & nt_geneset$logFC < 0)]
-
-write.table(x=upreg,
-            file=file.path(getwd(), "upreg_genes_aggregate.txt"),
-            sep="\t", row.names=FALSE, col.names=FALSE, quote=FALSE)
-write.table(x=downreg,
-            file=file.path(getwd(), "downreg_genes_aggregate.txt"),
-            sep="\t", row.names=FALSE, col.names=FALSE, quote=FALSE)
 ```
 
-```{r, echo=FALSE}
+```{r}
+# function for retrieving g:GOSt from g:Profiler
 gost_res <- function(query) {
   res <- gost(query = query,
                       significant=FALSE, # set our own threshold
                       ordered_query = TRUE, # ordered by rank
-                      exclude_iea=TRUE, # exclude elec GO annotations
+                      exclude_iea=TRUE, # exclude electronic GO annotations
                       correction_method = "fdr", # BH
                       organism = "hsapiens",
                       source = c("REAC","WP","GO:BP", 
@@ -615,7 +606,7 @@ gost_res <- function(query) {
 }
 ```
 
-I query our genesets using `gProfiler`'s `GOSt`.
+I query our genesets using `g:Profiler`'s `g:GOSt`.
 
 ```{r}
 # up and down regulated thresholded genes
@@ -646,9 +637,9 @@ down$result[1:5,c(3, 9, 11)] %>%
 
 ## Which method did you choose and why?
 
-I chose to use `g:Profiler` with R since it was well documented by Ruth Isserlin [@risserlin] and I had familiarity with it through the journal entry. 
+I chose to use `g:Profiler` with R since it was well documented by Ruth Isserlin [@risserlin] and I had familiarity with it through my journal entry. 
 
-`g:Profiler` provides an `ORA` (over-representation analysis) method, and this is exactly the method I want to perform on my un-thresholded and thresholded data.
+`g:Profiler` provides an `ORA` (over-representation analysis) method, and this is exactly the method I want to perform on my thresholded data.
 
 ## Which annotation data did you use and why? 
 
@@ -746,25 +737,25 @@ After thresholding with maximum value of 100 and minimum intersection of 10, we 
 
 ```{r, echo=FALSE}
 threshold_res(all$result, 3, 100, 10)[1:5,] %>%
-  knitr::kable(caption="Table 12: Head of thresholded up and down-regulated genes from ORA") %>%
+  knitr::kable(caption="Table 12: Head of thresholded [3, 100] up and down-regulated genes from ORA with intersection 10") %>%
   kable_styling
 ```
 
 ```{r, echo=FALSE}
 threshold_res(up$result, 3, 100, 10)[1:5,] %>%
-  knitr::kable(caption="Table 13: Head of thresholded up-regulated genes from ORA") %>%
+  knitr::kable(caption="Table 13: Head of thresholded [3, 100] up-regulated genes from ORA with intersection 10") %>%
   kable_styling
 ```
 
 ```{r, echo=FALSE}
 threshold_res(down$result, 3, 100, 10)[1:5,] %>%
-  knitr::kable(caption="Table 14: Head of thresholded down-regulated genes from ORA") %>%
+  knitr::kable(caption="Table 14: Head of thresholded [3, 100] down-regulated genes from ORA with intersection 10") %>%
   kable_styling
 ```
 
-As such, we find that up-regulated genes have some significant gene-sets after thresholding, whereas our down-regulated struggles to maintain significant values.
+As such, we find that up-regulated genes have some significant gene-sets after thresholding, whereas our down-regulated genes fail to maintain significance.
 
-Our combination table shows us overlap with the up-regulated genes, further supporting the significance of our up-regulation skewed results.
+Our combination table shows us strong overlap with the up-regulated genes, further supporting the significance of our up-regulation skewed results.
 
 ## Comparing up-regulated and down-regulated separate vs. together
 
@@ -817,19 +808,19 @@ Although, in terms of our results of this analysis, although some terms are sign
 
 ## Do the over-representation results support conclusions or mechanisms discussed in the original paper?
 
-The original paper includes substantially more processing of this data in addition to the single-cell RNA sequencing data they acquired in tandem, so it is difficult to say whether this supports those results. None of my significant differentially expressed genes appear throughout the report whatsoever. The discussion and results section for the bulk RNA-sequencing is very lacklustre compared to the rest of the analysis and results found by spatial resolution of single-cell RNA sequencing. The RNA sequencing heatmap appears possibly similar to mine, although they used scaled mean interaction score and subtyped only for `ER` and `TNBC` as opposed to all clinical subtypes. I can understand this approach since the `HER2` subtype presence was relatively small compared to the rest of the samples.
+The original paper includes substantially more processing of this data in addition to the single-cell RNA sequencing data they acquired in tandem, so it is difficult to say whether this supports those results. None of my significant differentially expressed genes appear throughout the report whatsoever. The discussion and results section for the bulk RNA-sequencing is very lackluster compared to the rest of the analysis and results found by spatial resolution of single-cell RNA sequencing. The RNA sequencing heatmap appears similar to mine, although they used scaled mean interaction score and subtyped only for `ER` and `TNBC` as opposed to the four available clinical subtypes. I can understand this approach since the `HER2` subtype presence was relatively small compared to the rest of the samples.
 
-Conclusively, there is not much functional enrichment apparently distinguishing the classified clinical subtypes of breast cancer; although if we had to look at the most significant term(s), our analysis would draw our attention to cadherin binding, ie. [GO:0045296](https://amigo.geneontology.org/amigo/term/GO:0045296), of which is not present in the paper's conclusions.
+There is not much functional enrichment apparently distinguishing the classified clinical subtypes of breast cancer in this dataset; although if we had to look at the most significant term(s), our analysis would draw our attention to cadherin binding, ie. [GO:0045296](https://amigo.geneontology.org/amigo/term/GO:0045296), of which is not present in the paper's conclusions. As such, my findings do not support the mechanisms or conclusions discussed in the original paper, although that does not deny my findings.
 
 ## Can you find evidence, ie. publications, to support some of the results that you see? How does this evidence support your results?
 
-Continuing with the most significant GO term from our analysis--cadherin binding--there is substantial evidence that cadherins are integral to mammary gland function, and misexpression of these leads to increased motility and consequently greater likelihood of metastases [@derycke2004n]. E-cadherin is one of the most widely expressed tumour suppressors in breast cancer, however cadherin-binding on its own is rather vague and difficult to draw conclusions from. We can conclude, however, that cadherins are associated with breast cancer in multiple ways, and so cadherin-binding may be a distinguishable functional enrichment between clinical subtypes.
+Continuing with the most significant GO term from our analysis--cadherin binding--there is substantial evidence that cadherins are integral to mammary gland function, and misexpression of such leads to increased motility and consequently greater likelihood of metastases formation [@derycke2004n]. E-cadherin is one of the most widely expressed tumour suppressors in breast cancer, however cadherin-binding on its own is rather vague and difficult to draw conclusions from. We can conclude, however, that cadherins are associated with breast cancer in multiple ways, and so cadherin-binding may be a distinguishable functional enrichment between clinical subtypes--but this claim is too general to confidently back.
 
-Interestingly, __one__ of our __three__ significantly differentially expressed genes after correction across clinical subtypes of breast cancer is `ANXA8` which is associated with breast cancer [@mala]. Rosetti et al. suggested `ANXA8` is significantly higher in `ER-` subtypes as opposed to `ER+` subtypes [@rossetti2016harnessing] but instead of finding that in our results, we noticed `ANXA8` was significantly differentially expressed across all clinical subtypes classified in our study. This warrants some investigation into why `ANXA8` is expressed differentially in `ER` subtypes according to research, yet selectively expressed differentially across all four of our classified clinical subtypes of breast cancer.
+Interestingly, one of our three significantly differentially expressed genes after correction across clinical subtypes of breast cancer is `ANXA8` which is associated with breast cancer [@mala]. Rosetti et al. suggested `ANXA8` is significantly higher in `ER-` subtypes as opposed to `ER+` subtypes [@rossetti2016harnessing] but instead of finding that in our results, we noticed `ANXA8` was significantly differentially expressed across all clinical subtypes classified in our study and not specifically `ER` overexpression or lack thereof. This warrants investigation into why `ANXA8` is expressed differentially in `ER` subtypes according to research, yet selectively expressed differentially across all four of our classified clinical subtypes of breast cancer, and not specifically for `ER` in-silico.
 
-In terms of significantly differentially expressed genes in regards to `ER-` and `ER+` specifically, the most significant gene is `EPHA3` which has been shown to be more up-regulated in `ER+` breast cancers [@liang2021expression], which directly supports my findings.
+In terms of significantly differentially expressed genes in regards to `ER-` and `ER+` specifically, the most significant gene is `EPHA3` which has been shown to be extensively more up-regulated in `ER+` breast cancers [@liang2021expression], which directly supports my findings. Although my findings were not reflective of the mechanisms and direction of the paper I retrieved the data from, they are supported by other evidence in certain ways.
 
-So ultimately, the paper's results are ..., however there is some associated evidence that suggests my results are not completely incorrect.
+In conclusion, there is some associated evidence that suggests my results have a foundation in functional biology, however nothing has a significance that would give me confidence to back my claim. For this, I would want a p-value smaller than `10e-3`.
 
 # Acknowledgments
 
