@@ -349,9 +349,13 @@ For the aggregate model of clinical subtypes, only `3` genes passed correction f
 
 The genes and their associated values are shown in the tables below.
 
+Table 5: Genes significantly differentially expressed after correction across clinical subtypes, aggregate design
+
 ```{r, echo=FALSE, fig.cap="Table 5: Genes significantly differentially expressed after correction across clinical subtypes, aggregate design"}
 top_hits$table[top_hits$table$FDR < 0.05,]
 ```
+
+Table 6: Genes significantly differentially expressed after correction associated with ER overexpression 
 
 ```{r, echo=FALSE, fig.cap="Table 6: Genes significantly differentially expressed after correction associated with ER overexpression"}
 top_erp$table[top_erp$table$FDR < 0.05,]
@@ -821,6 +825,10 @@ Interestingly, one of our three significantly differentially expressed genes aft
 In terms of significantly differentially expressed genes in regards to `ER-` and `ER+` specifically, the most significant gene is `EPHA3` which has been shown to be extensively more up-regulated in `ER+` breast cancers [@liang2021expression], which directly supports my findings. Although my findings were not reflective of the mechanisms and direction of the paper I retrieved the data from, they are supported by other evidence in certain ways.
 
 In conclusion, there is some associated evidence that suggests my results have a foundation in functional biology, however nothing has a significance that would give me confidence to back my claim. For this, I would want a p-value smaller than `10e-3`.
+
+# Associated Journal Entry
+
+My associated journal entry wiki link for this assignment is [here](https://github.com/bcb420-2025/Annabella_Bregazzi/wiki/Assignment-2).
 
 # Acknowledgments
 
