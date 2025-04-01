@@ -334,6 +334,7 @@ er_rnk_file = "er_ranks.rnk"
 
 # the March 1st release (latest at this point)
 gmt_url = "http://download.baderlab.org/EM_Genesets/March_01_2025/Human/symbol/"
+dest_gmt_file <- ""
 
 #use the non-filtered gmt
 gmt_files <- list.files(path = output_dir, pattern = "\\.gmt")
@@ -362,9 +363,9 @@ if (length(gmt_files) == 0) {
       paste(gmt_url,gmt_file,sep=""),
       destfile=dest_gmt_file
     )
-  } else {
-    dest_gmt_file <- gmt_files[1]
   }
+} else {
+  dest_gmt_file <- gmt_files[1]
 }
 ```
 
@@ -490,12 +491,7 @@ head(er_pos$NAME) %>%
   kable_styling()
 ```
 
-** Show some enrichment plots of interest! ...
-
-
-__a__, Aggregate model design, ie. across all clinical subtypes presented in this study; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. __b__, ER over-expression subtype classified by either over-expressed *ER*, or lack thereof. Produced by the GSEA PreRanked Analysis. Significance is determined via Benjamini-Hochberg correction for False Discovery Rate, *p < 0.05*.
-
-http://localhost:8787/files/projects/GSE176078/gsea/clinical.GseaPreranked.1743386287182/enplot_MAJOR_PATHWAY_OF_RRNA_PROCESSING_IN_THE_NUCLEOLUS_AND_CYTOSOL_REACTOME_R-HSA-6791226.5_1.png
+Following is an example of some of the enrichment plots available. There are a lot so I have selected two to show.
 
 ```{r, message=FALSE, echo=FALSE, results='asis'}
 ag <- file.path(ag_dir, "enplot_MAJOR_PATHWAY_OF_RRNA_PROCESSING_IN_THE_NUCLEOLUS_AND_CYTOSOL_REACTOME_R-HSA-6791226.5_1.png")
