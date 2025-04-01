@@ -1,0 +1,877 @@
+---
+title: "Assignment 3"
+subtitle: "Data Set Pathway and Network Analysis"
+author: "Annabella Bregazzi"
+date: "`r Sys.Date()`"
+output: 
+  html_notebook:
+    theme: cosmo
+    toc: yes
+    toc_float:
+      collapsed: true
+    number_sections: true
+    fig_caption: true
+    code_folding: hide
+bibliography: a3_references.bib
+csl: biomed-central.csl
+link-citations: true
+---
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+library(knitr)
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+tryCatch(expr = { library("GEOquery")}, 
+         error = function(e) { 
+           install.packages("GEOquery")}, 
+         finally = library("GEOquery"))
+tryCatch(expr = { library("kableExtra")}, 
+         error = function(e) { 
+           install.packages("kableExtra")}, 
+         finally = library("kableExtra"))
+tryCatch(expr = { library("edgeR")}, 
+         error = function(e) { 
+           install.packages("edgeR")}, 
+         finally = library("edgeR"))
+tryCatch(expr = { library("limma")}, 
+         error = function(e) { 
+           install.packages("limma")}, 
+         finally = library("limma"))
+if (!require("ComplexHeatmap", quietly = TRUE))
+    BiocManager::install("ComplexHeatmap")
+if (!require("circlize", quietly = TRUE))
+    BiocManager::install("circlize")
+tryCatch(expr = { library("gprofiler2")}, 
+         error = function(e) { 
+           install.packages("gprofiler2")}, 
+         finally = library("gprofiler2"))
+tryCatch(expr = { library("GSA")}, 
+         error = function(e) { 
+           install.packages("GSA")}, 
+         finally = library("GSA"))
+tryCatch(expr = { library("ggplot2")}, 
+         error = function(e) { 
+           install.packages("ggplot2")}, 
+         finally = library("ggplot2"))
+tryCatch(expr = { library("RCurl") },
+         error = function(e) {
+           install.packages("RCurl")},
+         finally = library("RCurl"))
+
+tryCatch(expr = { library("RCy3")}, 
+         error = function(e) { 
+           BiocManager::install("RCy3")}, 
+         finally = library("RCy3"))
+tryCatch(expr = { library("httr")}, 
+         error = function(e) { 
+           BiocManager::install("httr")}, 
+         finally = library("httr"))
+
+library(grid)
+library(png)
+library(gridExtra)
+
+options(knitr.table.format = "html")
+```
+
+# Introduction
+
+Bulk RNA sequencing data on 24 pre-treatment breast cancer tumours performed by Wu et al. [@wu2021single] was downloaded from `GEO` with accession [GSE176078](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176078), and [associated publication](https://pmc.ncbi.nlm.nih.gov/articles/PMC9044823/).
+
+```{r}
+geo_id <- "GSE176078"
+```
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+gse <- getGEO(geo_id, GSEMatrix=FALSE)
+gpl <- names(gse@gpls)
+gpl_info <- Meta(getGEO(gpl))
+```
+
+This dataset was sequenced using `r gpl_info$title`, submitted on `r gpl_info$submission_date`.
+
+Breast cancers are clinically stratified based on:
+
+- expression of the estrogen receptor (*ER*), 
+- expression of the progesterone receptor (*PR*), and
+- overexpression of *HER2* (or amplification of *HER2* gene *ERBB2*)
+
+This results in the following three __clinical subtypes__ within this dataset:
+
+- Luminal ie. ER+; (*ER+*, *PR+/-*)
+- HER2+; (*HER2+*, *ER+/-*, *PR+/-*)
+- Triple Negative ie. TNBC; (*ER-*, *PR-*, *HER2-*)
+
+Breast cancers are also stratified on bulk transcriptomic profiling via PAM50 gene signatures [@parker2009supervised] describing five __molecular subtypes__: Luminal A, Luminal B, HER2-enriched, Basal-like, and Normal-like.
+
+The ~70-80% concordance between clinical and molecular subtypes motivated this study to improve functional understanding of breast cancer in a broader and more coherent sense.
+
+For this study, the clinical subtype conditions classified are as follows:
+
+- `HER2+` ; (*HER2+*, *ER-*, *PR+/-*)
+- `HER2+/ER+` ; (*HER2+*, *ER+*, *PR+/-*)
+- `ER+` ; (*HER2-*, *ER+*, *PR+/-*)
+- `TNBC` ; (*HER2-*, *ER-*, *PR-*)
+
+```{r, message=FALSE, echo=FALSE}
+normalized_counts <- read.table(
+  file=file.path(getwd(), geo_id,
+                 paste(geo_id, 
+                       "normalized_counts.txt", 
+                       sep="_")),
+  header=TRUE, sep="\t", 
+  stringsAsFactors=FALSE, 
+  check.names=FALSE)
+```
+
+The distribution of clinical subtypes across the 24 samples is shown in table 1.
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+types <- do.call(rbind,
+                 lapply(gse@gsms,,
+                        FUN=function(x, ...){
+                          c(x@header$title,
+                            x@header$characteristics_ch1)}))[,c(1,2)]
+types[,2] <- gsub(types[,2],
+                  pattern = "clinical_subtype: ",
+                  replacement = "")
+
+present <- colnames(normalized_counts)
+types <- types[which(types[,1] %in% present),]
+
+types <- cbind(types, grepl("^[H][E][R][2][+]", types[,2]))
+types <- cbind(types, grepl("[E][R][+]$", types[,2]))
+colnames(types) <- c("sample", "subtype", "her2", "er")
+types_df <- as.data.frame(types)
+```
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, results='hide'}
+her2 = length(which(types[,"subtype"] == "HER2+"))
+her2er = length(which(types[,"subtype"] == "HER2+/ER+"))
+tnbc = length(which(types[,"subtype"] == "TNBC"))
+er = length(which(types[,"subtype"] == "ER+"))
+total = sum(her2, her2er, tnbc, er)
+
+subtype_counts = data.frame(c(her2, her2er, tnbc, er, total),
+                            row.names = c("HER2+", 
+                                          "HER2+/ER+", 
+                                          "TNBC", 
+                                          "ER+", "Total"))
+subtype_counts$percentages = subtype_counts[,1] * 100 / total
+```
+
+```{r, echo=FALSE, results='asis'}
+subtype_counts %>%
+  knitr::kable(caption="Table 1: Clinical breast cancer subtype splits in our dataset", 
+      digits=2,
+      col.names=c("Count", "Percent")) %>%
+  kable_styling() %>%
+  row_spec(5, bold = T)
+```
+
+This leads to 
+
+* `r 400/24`% of samples containing `HER2` expression, and 
+* `r 1400/24`% of samples containing `ER` expression, 
+
+With the overlaps giving us 
+
+* `r 200/4`% of those with `HER2` expressed also had `ER` expressed, 
+* `r 200/14`% of those with `ER` expressed also had `HER2` expressed.
+
+
+The raw counts were cleaned, mapped to [HUGO Gene Nomenclature Committee (HGNC) Symbols](https://www.genenames.org/), and normalized to produce final counts. Of the original `58387` genes, we were able to map and produce `28712` unversioned, unique genes, of which filtering outliers (keeping genes present in a minimum of `12` samples) resulted in `14800` genes remaining. 
+
+The density plot shows the distribution of the cleaned, filtered, and normalized counts per million across all samples (varying colours). 
+
+<br/>
+
+![Figure 1: Smoothing density of filtered and normalized CPM counts for 24 samples across four clinical subtypes of breast cancer tissue. Counts were filtered with `edgeR`'s `cpm()` thresholded at a minimum sum of 12 CPM across samples for each gene. Counts were normalized with `edgeR`'s `DGEList()` across all four clinical subtypes. Normalization factors were calculated via TMM. ](/home/rstudio/projects/figures/GSE176078_filt_norm_density.png)
+
+
+<br/>
+Dispersion was calculated using `edgeR` to describe deviation of variance from the mean. The Biological Coefficient of Variation (BCV) is dispersion-squared, and represents the mean-variance relationship among genes.
+
+![Figure 2: Biological Coefficient of Variation (Dispersion squared) for 24 samples across four clinical subtypes of breast cancer tissue gene-wise. Dispersion was calculated using `edgeR`'s `plotBCV()` on the model designed across all four clinical subtypes.](/home/rstudio/projects/figures/GSE176078_bcv.png)
+
+<br/>
+The normalized counts were modeled by two designs. The first being an aggregate design considering all clinical subtypes as distinct, ie. *HER2+/ER+*, *HER2+*, *ER+*, and *TNBC*. The second being a split binary-pairing model combining the two separate classification subtypes, ie. *HER2+/-* and *ER+/-* as a binary pair. The separate model designs represented different perspectives on labeling the data and allow for more specific or generic conclusions.
+
+```{r}
+# aggregate model design
+model_design <- model.matrix(~ types_df$subtype)
+
+# split model design (binary pairs)
+splt_model_design <- model.matrix(~ types_df$her2 + types_df$er)
+```
+
+The `Quasi-Likelihood Model` from `edgeR` was used to produce `Quasi-Likelihood Fits` for each model design, at which point differential expression was calculated across the models.
+
+```{r, message=FALSE, echo=FALSE, results='hide'}
+norm_matrix <- as.matrix(normalized_counts)
+```
+
+```{r}
+# normalized counts grouped by clinical subtype
+d <- DGEList(counts=norm_matrix, 
+             group=types_df$subtype)
+
+# estimate dispersion on subtype model design
+d_ <- estimateDisp(d, model_design)
+qlfit <- glmQLFit(d_, model_design)
+
+# in parallel, estimate dispersion on binary pairing model design
+d_splt <- estimateDisp(d, splt_model_design)
+qlfit_splt <- glmQLFit(d_splt, splt_model_design)
+
+# fit subtype model design
+qlf.subtypes <- glmQLFTest(qlfit)
+
+# fit split model design
+qlf.her2p <- glmQLFTest(qlfit_splt, 
+                        coef='types_df$erTRUE')
+qlf.erp <- glmQLFTest(qlfit_splt, 
+                      coef='types_df$her2TRUE')
+```
+
+The __Benjamini-Hochberg__ method for false discovery was used to correct p-values to classify the resulting genes that passed correction for differential expression in their respective models, producing the following volcano plots. Note that only the aggregate design and *ER* specific expression models are shown since no genes passed correction for the *HER2* specific design.
+<br/>
+
+![Figure 3: Volcano Plot for significantly differentially expressed genes in 24 samples across four clinical subtypes of breast cancer tissue (aggregate design). Differential expression was calculated across the aggregate model design across all four clinical subtypes. Significant before correction is represented by p < 0.05, with significant after correction being FDR < 0.05.](/home/rstudio/projects/figures/volcano_aggregate.png)
+
+<br/>
+
+The aggregate model highlights in red *CD207*, *MKX*, and *ANXA8* as genes significantly differentially expressed after correction for false discovery.
+
+![Figure 4: Volcano Plot for significantly differentially expressed genes in 24 samples across binary over-expression of ER clinical subtypes of breast cancer tissue (split design). Differential expression was calculated across ER expression design. Significant before correction is represented by p < 0.05, with significant after correction being FDR < 0.05.](/home/rstudio/projects/figures/volcano_er.png)
+
+<br/>
+
+The split model in terms of *ER* over-expression highlights in red *EPHA3*, *KCNMB2*, *CLEC1B*, *CYP2G1P*, *CDH26*, *CASC3*, *TFF3*, *RAPGEFL1*, *MSL1*, *MUC4*, and *THRA* as genes significantly differentially expressed after correction for false discovery.
+
+Using these models, non-thresholded gene-sets can be pulled by ranking according to -log(p-values) and signing according to the log fold-change.
+
+```{r}
+# create non-thresholded gene sets
+
+# across all clinical subtypes
+nt_geneset <- qlf.subtypes$table
+nt_geneset[,"Rank"] <- -log10(nt_geneset$PValue) * sign(nt_geneset$logFC)
+nt_geneset <- nt_geneset[order(nt_geneset$Rank, decreasing=TRUE),]
+
+# across ER over-expression
+er_geneset <- qlf.erp$table
+er_geneset[,"Rank"] <- -log10(er_geneset$PValue) * sign(er_geneset$logFC)
+er_geneset <- er_geneset[order(er_geneset$Rank, decreasing=TRUE),]
+```
+
+The ranked gene-sets are saved as `.rnk` files for further analysis in the remainder of this report.
+
+```{r}
+# for the aggregate clinical subtype model
+# create a separate ranks matrix with only gene name and rank
+geneset_ranks <- cbind(rownames(nt_geneset), nt_geneset[,"Rank"])
+colnames(geneset_ranks) <- c("GeneName", "Rank")
+
+ranked_geneset_filepath <- file.path(getwd(), 
+                                     geo_id, 
+                                     "ag_ranks.rnk")
+# if the file does not exist already
+if (!file.exists(ranked_geneset_filepath)) {
+  # write this matrix to the file
+  write.table(geneset_ranks,
+              ranked_geneset_filepath,
+              quote=FALSE,sep="\t",row.name=FALSE)
+}
+
+# for the ER over-expression model
+# create a separate ranks matrix with only gene name and rank
+geneset_er_ranks <- cbind(rownames(er_geneset), er_geneset[,"Rank"])
+colnames(geneset_er_ranks) <- c("GeneName", "Rank")
+
+ranked_er_geneset_filepath <- file.path(getwd(), 
+                                     geo_id, 
+                                     "er_ranks.rnk")
+# if the file does not exist already
+if (!file.exists(ranked_er_geneset_filepath)) {
+  # write this matrix to the file
+  write.table(geneset_er_ranks,
+              ranked_er_geneset_filepath,
+              quote=FALSE,sep="\t",row.name=FALSE)
+}
+```
+
+```{r, echo=FALSE, results='asis'}
+head(geneset_ranks) %>%
+  knitr::kable(caption="Table 2: Gene Ranks for aggregate model design across HER2+/ER+, HER2+, ER+, and TNBC clinical subtypes of breast cancer.", digits=4) %>%
+  kable_styling()
+```
+
+```{r, echo=FALSE, results='asis'}
+head(geneset_er_ranks) %>%
+  knitr::kable(caption="Table 3: Gene Ranks for split model design across ER +/- overexpression as a clinical subtype classifier of breast cancer.", digits=4) %>%
+  kable_styling()
+```
+
+The first five genes are displayed in the tables above for the two model designs of interest.
+
+# Non-Thresholded Gene-Set Enrichment Analysis
+
+Using the GSEA command-line interface `.jar` for compatibility of using GSEA with R, we can download the desired gene-set file from the Bader Lab.
+
+The code below is adapted from Ruth Isserlin [@risserlin].
+
+```{r, results='hide'}
+# variable names for easier modification
+gsea_jar = "~/GSEA_4.3.2/gsea-cli.sh"
+working_dir = "~/projects/GSE176078"
+output_dir = "~/projects/GSE176078/gsea"
+analysis_name_ag = "clinical subtypes"
+analysis_name_er = "ER over-expression"
+ag_rnk_file = "ag_ranks.rnk"
+er_rnk_file = "er_ranks.rnk"
+
+# the March 1st release (latest at this point)
+gmt_url = "http://download.baderlab.org/EM_Genesets/March_01_2025/Human/symbol/"
+
+#use the non-filtered gmt
+gmt_files <- list.files(path = output_dir, pattern = "\\.gmt")
+if (length(gmt_files) == 0) {
+  # download the desired gene-set file
+  filenames = getURL(gmt_url)
+  tc = textConnection(filenames)
+  contents = readLines(tc)
+  close(tc)
+    
+  # filter based on the following specifications:
+  # + Gene Ontology : Biological Processes terms, 
+  #   + include All Pathways
+  # - WikiPathways (PFOCR), and
+  # - GO IEA (electronic annotations)
+  rx = gregexpr("(?<=<a href=\")(.*.GOBP_AllPathways_noPFOCR_no_GO_iea.*.)(.gmt)(?=\">)",
+                  contents, perl = TRUE)
+  gmt_file = unlist(regmatches(contents, rx))
+  
+  dest_gmt_file <- file.path(output_dir, gmt_file)
+    
+  # if the gmt file has not already been downloaded
+  if(!file.exists(dest_gmt_file)){
+    # download the specified release from the URL
+    download.file(
+      paste(gmt_url,gmt_file,sep=""),
+      destfile=dest_gmt_file
+    )
+  } else {
+    dest_gmt_file <- gmt_files[1]
+  }
+}
+```
+
+```{r, results='hide'}
+# generate the command for the aggregate clinical subtype model
+cmd <- paste("", gsea_jar,
+             "GSEAPreRanked -gmx", dest_gmt_file,
+             "-rnk" ,file.path(working_dir, ag_rnk_file), 
+             "-collapse false -nperm 1000 -scoring_scheme weighted", 
+             "-rpt_label ", analysis_name_ag,
+             "  -plot_top_x 20 -rnd_seed 12345  -set_max 200",  
+             " -set_min 15 -zip_report false ",
+             " -out", output_dir, 
+             " > gsea_output_ag.txt", sep=" ")
+# if the output folder does not already exist
+if (length(list.files(path=output_dir,
+                      pattern="^clinical.GseaPreranked")) == 0) {
+  system(cmd) # run the cmd
+}
+
+# and generate the command for the ER over-expression classifier model
+cmd <- paste("", gsea_jar,
+             "GSEAPreRanked -gmx", dest_gmt_file,
+             "-rnk" ,file.path(working_dir, er_rnk_file), 
+             "-collapse false -nperm 1000 -scoring_scheme weighted", 
+             "-rpt_label ", analysis_name_er,
+             "  -plot_top_x 20 -rnd_seed 12345  -set_max 200",  
+             " -set_min 15 -zip_report false ",
+             " -out", output_dir, 
+             " > gsea_output_er.txt", sep=" ")
+# if the output folder does not already exist
+if (length(list.files(path=output_dir,
+                      pattern="^ER.GseaPreranked")) == 0) {
+  system(cmd) # run the cmd
+}
+```
+
+## What method did you use?
+
+I chose to use `GSEA`'s PreRanked Analysis since I had familiarity with it through my journal entry and found it to be very informative on completion of the analysis. It was also flexible in terms of using whichever gene matrix transposed gene-set file I wanted, which meant I could redo the analysis programmatically if I needed to try again with a different or updated gene-set.
+
+### What gene-sets did you use? (Specify versions and cite your methods)
+
+I chose to use the the `Human` gene-set from the [BaderLab](https://download.baderlab.org/EM_Genesets/) released on `March 1st, 2025`. The gene-sets were developed using the latest version of GO Human annotations on December 21, 2025, which means we are using the release dated most recently before this. As such, it includes
+
+* `GO:BP` : `Gene Ontology: Biological Processes` ; 
+    version __225__ released __24 October, 2024__
+
+There is an option to include `PFOCR`, which is `WikiPathways`, however I did not include this since I performed the analysis only using `GO:BP` first and found it to be sufficient for my needs in terms of this analysis.
+
+## Summarize your enrichment results
+
+There are a lot of individual plots available for specific terms.
+
+First, the following plots agree with our volcano plots to give us more confidence in the remaining results.
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# side-by-side plotting function
+plot_both <- function(img1, img2, text) {
+  img1 <- grid::rasterGrob(as.raster(readPNG(img1)),
+                           interpolate = FALSE)
+  img2 <- grid::rasterGrob(as.raster(readPNG(img2)),
+                           interpolate = FALSE)
+  grid.arrange(img1, img2, ncol = 2, top = text)
+}
+```
+
+```{r, message=FALSE, echo=FALSE, results='asis'}
+# find the folder names
+ag_dir <- file.path(output_dir, list.files(path=output_dir,
+                      pattern="^clinical.GseaPreranked")[1])
+er_dir <- file.path(output_dir, list.files(path=output_dir,
+                      pattern="^ER.GseaPreranked")[1])
+
+ag <- file.path(ag_dir, "pvalues_vs_nes_plot.png")
+er <- file.path(er_dir, "pvalues_vs_nes_plot.png")
+
+# function I created to display two png's in parallel
+plot_both(ag, er, "(a) Aggregate                                (b) ER over-expression")
+```
+
+Figure 5: Normalized Enrichment Score and Significance plots for both model designs. __a__, Aggregate model design, ie. across all clinical subtypes presented in this study; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. __b__, ER over-expression subtype classified by either over-expressed *ER*, or lack thereof. Produced by the GSEA PreRanked Analysis. Significance is determined via Benjamini-Hochberg correction for False Discovery Rate, *p < 0.05*.
+
+<br/>
+
+I read in the resulting csv files from the GSEA reports.
+
+```{r}
+ag_neg <- read.csv2(file.path(ag_dir, "gsea_report_for_na_neg_1743386287182.tsv"),
+                        header=TRUE, sep="\t")
+ag_pos <- read.csv2(file.path(ag_dir, "gsea_report_for_na_pos_1743386287182.tsv"),
+                        header=TRUE, sep="\t")
+
+er_neg <- read.csv2(file.path(er_dir, "gsea_report_for_na_neg_1743386532278.tsv"),
+                        header=TRUE, sep="\t")
+er_pos <- read.csv2(file.path(er_dir, "gsea_report_for_na_pos_1743386532278.tsv"),
+                        header=TRUE, sep="\t")
+```
+
+I display the top hits for both models, both positively and negatively correlated.
+
+```{r, echo=FALSE, results='asis'}
+head(ag_neg$NAME) %>%
+  knitr::kable(caption="Table 4: Negatively correlated top gene-set hits for aggregate model design across HER2+, HER2+/ER+, ER+, and TNBC.", digits=4) %>%
+  kable_styling()
+```
+
+```{r, echo=FALSE, results='asis'}
+head(ag_pos$NAME) %>%
+  knitr::kable(caption="Table 5: Positively correlated top gene-set hits for aggregate model design across HER2+, HER2+/ER+, ER+, and TNBC.", digits=4) %>%
+  kable_styling()
+```
+
+```{r, echo=FALSE, results='asis'}
+head(er_neg$NAME) %>%
+  knitr::kable(caption="Table 6: Negatively correlated top gene-set hits for ER over-expression model design.", digits=4) %>%
+  kable_styling()
+```
+
+```{r, echo=FALSE, results='asis'}
+head(er_pos$NAME) %>%
+  knitr::kable(caption="Table 7: Positively correlated top gene-set hits for ER over-expression model design.", digits=4) %>%
+  kable_styling()
+```
+
+** Show some enrichment plots of interest! ...
+
+
+__a__, Aggregate model design, ie. across all clinical subtypes presented in this study; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. __b__, ER over-expression subtype classified by either over-expressed *ER*, or lack thereof. Produced by the GSEA PreRanked Analysis. Significance is determined via Benjamini-Hochberg correction for False Discovery Rate, *p < 0.05*.
+
+http://localhost:8787/files/projects/GSE176078/gsea/clinical.GseaPreranked.1743386287182/enplot_MAJOR_PATHWAY_OF_RRNA_PROCESSING_IN_THE_NUCLEOLUS_AND_CYTOSOL_REACTOME_R-HSA-6791226.5_1.png
+
+```{r, message=FALSE, echo=FALSE, results='asis'}
+ag <- file.path(ag_dir, "enplot_MAJOR_PATHWAY_OF_RRNA_PROCESSING_IN_THE_NUCLEOLUS_AND_CYTOSOL_REACTOME_R-HSA-6791226.5_1.png")
+er <- file.path(er_dir, "enplot_CELL-CELL_ADHESION_MEDIATED_BY_CADHERIN_GOBP_GO_0044331_3.png")
+
+plot_both(ag, er, "(a) Aggregate                                (b) ER over-expression")
+```
+
+Figure 6: Some enrichment plots for both model designs. __a__, Aggregate model design, ie. across all clinical subtypes presented in this study; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. Presented is the enrichment plot for rRNA processing in the nucleus and cytosol reactome. __b__, ER over-expression subtype classified by either over-expressed *ER*, or lack thereof. Presented is the enrichment plot of cell-cell adhesion mediated cadherin binding. Produced by the GSEA PreRanked Analysis. Statistics and metrics are described on the GSEA website.
+
+<br/>
+
+## How do these results compare to the results from the thresholded analysis in Assignment 2? Compare qualitatively.
+
+`Interferons` and `cadherin-binding` are familiar terms from assignment 2. Although the depth of detail we achieved was much less in assignment 2, and not only that, we had less scope due to the thresholds on our gene-sets. There are some similarities, and some differences, which is to be expected.
+
+### Is this a straight forward comparison? Why or Why not?
+
+No, since the versions of data we are using is different. Also, the thresholded analysis does not contain as much information, and although we have gene-set size information available in our non-thresholded analysis results, it is not straight-forward.
+
+# Visualizing Gene-Set Enrichment Analysis in Cytoscape
+
+Similarly to our analysis using GSEA, we will perform our analysis using Cytoscape via R code.
+
+The code below is adapted from Ruth Isserlin [@risserlincyto].
+
+We ensure to use the original gene-matrix transposed file so as not to hinder our analysis with the filtering present in the output `.gmt` from `GSEA`.
+
+```{r}
+#use the non-filtered gmt
+gmt_files <- list.files(path = output_dir, pattern = "\\.gmt")
+# get the details on the files
+details = file.info(file.path(output_dir,gmt_files))
+# order from newest to oldest
+details = details[with(details, order(as.POSIXct(mtime),decreasing = TRUE)), ]
+#use the newest file:
+gmt_gsea_file <- row.names(details)[1]
+```
+
+```{r}
+ag_edb <- file.path(ag_dir, "edb")
+er_edb <- file.path(er_dir, "edb")
+
+ag_res_edb <- file.path(ag_edb, "results.edb")
+er_res_edb <- file.path(er_edb, "results.edb")
+
+ag_ranks <- file.path(ag_edb, "ag_ranks.rnk")
+er_ranks <- file.path(er_edb, "er_ranks.rnk")
+```
+
+```{r, message=FALSE}
+# build the class file for aggregate design
+ag_cls = "~/projects/GSE176078/ag.cls"
+if (!file.exists(ag_cls)) {
+  # num of samples of each class
+  cat(as.character(subtype_counts[1:4,1]),sep = " ",file=ag_cls,append=TRUE)
+  cat("\n", file=ag_cls, append=TRUE)
+  # names of each class
+  cat(c("#", "HER2+", "HER2+/ER+", "TNBC", "ER+"), sep = " ",file=ag_cls,append=TRUE)
+  cat("\n", file=ag_cls, append=TRUE)
+  # ordered name for each sample
+  cat(types_df$subtype, sep = " ",file=ag_cls,append=TRUE)
+  cat("\n", file=ag_cls, append=TRUE)
+}
+```
+
+We must ensure cytoscape is running for the next sections of code. If everything is working properly, there will be a successful message from Cytoscape after we ping!
+
+```{r}
+# define docker base url's
+current_base = "host.docker.internal:1234/v1"
+.defaultBaseUrl <- "http://host.docker.internal:1234/v1"
+
+cytoscapePing(base.url = current_base)
+```
+
+We are currently using `Cytoscape` version __`r cytoscapeVersionInfo(base.url = current_base)`__.
+
+```{r}
+# function to upload a local file to the host machine
+to_cytoscape <- function(local_path) {
+  bname <- basename(local_path)
+  r <- POST(
+    url = 
+paste('http://host.docker.internal:1234/enrichmentmap/textfileupload?fileName=', 
+                bname, sep=""),
+    config = list(),
+    body = list(file = upload_file(local_path)),
+    encode = "multipart",
+    handle = NULL
+  )
+  content(r,"parsed")$path
+}
+```
+
+```{r}
+# starting with the aggregate design model, 
+# upload local files and record the host path
+ag_res_edb <- to_cytoscape(ag_res_edb)
+ag_ranks <- to_cytoscape(ag_ranks)
+gmt <- to_cytoscape(gmt_gsea_file)
+ag_cls <- to_cytoscape(ag_cls)
+# expr file ?
+
+# and upload files for the ER over-expression model
+er_res_edb <- to_cytoscape(er_res_edb)
+er_ranks <- to_cytoscape(er_ranks)
+```
+
+## Create an Enrichment map
+
+```{r}
+pval <- 0.05
+qval <- 0.05
+sim <- 0.375
+sim_metric <- "COMBINED" # or JACCARD
+
+ag_network <- paste("aggregate", pval, qval, sep="_")
+
+em_cmd = paste('enrichmentmap build analysisType="gsea" gmtFile=',
+                gmt,
+                'pvalue=', pval, 
+                'qvalue=', qval,
+                'similaritycutoff=', sim,
+                'coefficients=', sim_metric,
+                'ranksDataset1=', ag_ranks,
+                'enrichmentsDataset1=', ag_res_edb, 
+                'filterByExpressions=false',
+                # 'expressionDataset1=',expression_file_fullpath,
+                'classDataset1=', ag_cls,
+                # 'gmtFile=', gmt,
+                sep=" ")
+
+# fetch the suid of the newly created network
+ag_resp <- commandsGET(em_cmd, base.url = current_base)
+
+# check if the cmd was successful or failed
+if (grepl(pattern="Failed", ag_resp)) {
+  paste(ag_resp)
+} else {
+  ag_suid <- ag_resp
+}
+
+curr_names <- getNetworkList(base.url = current_base)
+if (ag_network %in% curr_names) {
+  ag_network <- paste(ag_suid, ag_network, sep="_")
+}
+
+resp <- renameNetwork(title = ag_network,
+                      network = as.numeric(ag_suid),
+                      base.url = current_base)
+```
+
+And, for the ER over-expression model, I create another enrichment map.
+
+```{r}
+pval <- 0.05
+qval <- 0.05
+sim <- 0.375
+sim_metric <- "COMBINED" # or JACCARD
+
+er_network <- paste("er", pval, qval, sep="_")
+
+em_cmd = paste('enrichmentmap build analysisType="gsea" gmtFile=',
+                gmt,
+                'pvalue=', pval, 
+                'qvalue=', qval,
+                'similaritycutoff=', sim,
+                'coefficients=', sim_metric,
+                'ranksDataset1=', er_ranks,
+                'enrichmentsDataset1=', er_res_edb, 
+                'filterByExpressions=false',
+                sep=" ")
+
+# fetch the suid of the newly created network
+er_resp <- commandsGET(em_cmd, base.url = current_base)
+
+# check if the cmd was successful or failed
+if (grepl(pattern="Failed", er_resp)) {
+  paste(er_resp)
+} else {
+  er_suid <- er_resp
+}
+
+curr_names <- getNetworkList(base.url = current_base)
+if (er_network %in% curr_names) {
+  er_network <- paste(er_suid, er_network, sep="_")
+}
+
+er_resp <- renameNetwork(title = er_network,
+                         network = as.numeric(er_suid),
+                         base.url = current_base)
+```
+
+### How many nodes and how many edges in the resulting map?
+
+Our enrichment map network for the aggregate model design across all four clinical subtypes of breast cancer presented, *HER2+/ER+*, *HER2+*, *ER+*, and *TNBC*, has:
+
+* *# nodes* : `364`
+* *# edges* : `2768`
+
+And the ER over-expression design across *ER+/-*, has:
+
+* *# nodes* : `82`
+* *# edges* : `201`
+
+### What thresholds were used to create this map? (make sure to record all thresholds)
+
+I used the following thresholds for both networks:
+
+* *p-value* : `0.05`
+* *q-value* : `0.05`
+* *similarity threshold* : `0.375`
+
+I used the `COMBINED` similarity metric for these maps.
+
+### Include a screenshot of your network prior to manual layout.
+
+Shown are the networks prior to manual layout. Note that this section could not be programmatically retrieved and displayed due to the limitations of using Cytoscape in R with Docker.
+
+Both layouts are very messy before adjustment, and purely for demonstrative purposes.
+
+![Figure 7: Initial network layout for aggregate model design; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. Generated using Cytoscape via RCy3. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/initial_network_ss.png)
+
+<br/>
+
+![Figure 8: Initial network layout for ER over-expression model; *ER+/-*. Generated using Cytoscape via RCy3. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/er_init.png)
+
+<br/>
+
+
+## Annotate your Network
+
+Annotating the network is where the manual work begins and the figures start to look readable.
+
+### What parameters did you use to annotate the network? (make sure to list the default parameters you are using as well)
+
+I added a class file in the GSEA format to add information about each sample's classification according to the aggregate clinical subtype design, however I did not really see it present in the network.
+
+I used the `AutoAnnotate` additional application to annotate using `Gene-Set Descriptions`. I selected the 'Layout Network to avoid cluster overlap' and adjusted some of the labels that were overlapping.
+
+The nodes are colour-scaled by `FDR q-value` with darker-red nodes having values closer to 0.00, and lighter-red nodes having values closer to 0.05.
+
+__Cut-Off Values:__
+
+* P-value: 0.05 
+* FDR Q-value: 0.05 
+* Jaccard Overlap Combined: 0.375  
+* Test used: Jaccard Overlap Combined Index (k constant = 0.5) 
+
+__Data Sets:__
+
+* Dataset 1 
+* Gene Sets File: .../em_fileupload_16120623913225671898/em_11162267974427327696_
+Human_GOBP_AllPathways_noPFOCR_no_GO_iea_March_01_2025_symbol.gmt 
+* Data Files: .../em_fileupload_16120623913225671898/em_6205993452311517617_results.edb 
+* Ranks File: .../em_fileupload_16120623913225671898/em_13925529101006825111_ag_ranks.rnk 
+* Positive Phenotype: UP 
+* Negative Phenotype: DOWN 
+
+## Make a publication-ready figure with proper legends.
+
+The annotations present are already grouped and clearly highlighted. I added a legend to the top-left denoting the node colour-scaling. I selected the 'Publication Ready' option and it removed the labels of the individual nodes themselves, so the focus can be drawn to the annotations.
+
+![Figure 9: Annotated aggregate network layout; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. Generated using Cytoscape via RCy3, annotated using AutoAnnotate application in the Cytoscape interface. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/pub_ag.png)
+
+<br/>
+
+![Figure 10: Annotated ER over-expression network layout; *ER+/-*. Generated using Cytoscape via RCy3, annotated using AutoAnnotate application in the Cytoscape interface. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/er_pub.png)
+
+<br/>
+
+There is a major focus on the central grouping with some sparser nodes present on the outskirts of the network. I filtered nodes that did not have more than 5 connections, however they still showed up on the graph despite being highlighted differently in my initial network.
+
+## Collapse your network to a theme network.
+
+For this section, I generated two themed networks for each of the model designs.
+
+First, I generated a summary network to show a more concise and simple design highlighting the major connection points in this network.
+
+![Figure 11: Summary themed network for aggregate model design; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. Generated using Cytoscape via RCy3, cleaned using AutoAnnotate application in the Cytoscape interface to generate a Summary network. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/summary_ag.png)
+
+<br/>
+
+Next, I generated a clustering at the most generic level for the aggregate design network. 
+
+
+![Figure 12: Generic clustering network for aggregate model design; *HER2+*, *HER2+/ER+*, *ER+*, and *TNBC*. Generated using Cytoscape via RCy3, cleaned using AutoAnnotate application in the Cytoscape interface to generate the most generic clustering available. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/generic_ag.png)
+
+
+<br/>
+
+![Figure 13: Summary clustering network for ER over-expression model design; *ER+/-*. Generated using Cytoscape via RCy3, cleaned using AutoAnnotate application in the Cytoscape interface to generate a Summary network. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/er_sum.png)
+
+<br/>
+
+![Figure 14: Generic clustering network for ER over-expression model design; *ER+/-*. Generated using Cytoscape via RCy3, cleaned using AutoAnnotate application in the Cytoscape interface to generate the most generic clustering available. p-value < 0.05, q-value < 0.05, similarity threshold < 0.375 with a combined similarity metric.](/home/rstudio/projects/figures/er_gen.png)
+
+<br/>
+
+### What are the major themes present in this analysis?
+
+Pretty clearly for the aggregate model design, the major theme is protein synthesis processes. The most generic level of grouping had no real effect on the nodes seemingly separate from the most central grouping, and so grouped the most related gene-sets into `Protein Synthesis Processes`.
+
+This particular grouping majorly combines `SRP Protein Synthesis`, `Nuclear Export Sumoylation`, `Process Purine Catabolism`, and `Strand DNA Templating`, along with `de novo folding`, `small subunit assembly`, `Tricistronic rRNA SSU`, among a few others.
+
+Apart from this major theme, the separate groups are fairly separate, although some possible mechanisms present themselves as interesting, such as the relation of `Thymic IL2 1 Pathway` and `Spindle Checkpoint Chromosome` to breast cancerous subtype differences.
+
+<br/>
+
+For the ER over-expression model design, the major theme appears to be the `Electron Transport Process`, along with `Phospholipid Phagocytosis` and `Strand Nuclear DNA`.
+
+`Electron Transport Process` groups `Glycogenesis Type Deficiency`, `Process Diphosphate Metabolic`, and `Coupled Electron Transport`.
+
+### Do they fit with the model?
+
+It is not very informative to say that `Protein Synthesis Processes` fit as a determination in distinguishing different clinical subtypes of breast cancer. *HER2* and *ER* over-expression or lack thereof classify these subtypes, and so it seems natural that protein synthesis is involved.
+
+Similarly, the `Electron Transport Process` is hallmark to the entirety of cellular function. As to how it fits with *ER* over-expression or lack thereof in breast cancerous subtypes is unknown.
+
+### Are there any novel pathways or themes?
+
+There are some novel pathways and themes, like that of `Thymic IL2 1 Pathway` and `Spindle Checkpoint Chromosome` which can be associated with possible mechanisms of breast cancer. As to how these separate the clinical subtypes of breast cancer is novel, but possible. Interleukin inflammation can contribute to environments conducive to cancerous growth and proliferation, similarly with problems in the cell cycle like that of spindle checkpoint(s).
+
+`Skin Epidermis Development` seems quite far off from breast cancer. I am assuming metastases can be common for one reason or another, but it is very difficult to characterize this small grouping as being related to the clinical subtypes of our interest.
+
+For the ER over-expression, it seems most of the pathways, even despite having only a few nodes, are rather relevant to the relative realm of breast cancerous pathology.
+
+# Interpretation
+
+## Do the enrichment results support conclusions or mechanisms discussed in the original paper?
+
+The original paper included this enrichment analysis of their single-cell RNA sequencing samples. This Gene-Set Enrichment Analysis was performed using ClusterProfiler with gene-sets from the MSigDB HALLMARK collection. *p-values < 0.05* were adjusted using Bonferroni.
+
+![Figure 15: Gene-Set Enrichment Analysis performed by the original publishers Wu. et al (2021)](/home/rstudio/projects/figures/og_paper.png)
+
+<br/>
+
+My aggregate model design solely agrees with the findings of the publication on `Mitotic Spindle`. The remainder of my network does not agree with the findings whatsoever.
+
+Similarly, my ER over-expression design lists `Hallmark Interferon Response` in agreement with the publication. Other than that, there is little agreement.
+
+### How do these results differ from the results you got in Assignment 2 thresholded methods?
+
+In assignment 2, my enrichment results mentioned `Interferons`, and `Cadherin-binding`, but nothing else is too similar. Apart from the very generic conclusions being `Protein Synthesis Processes` and `Electron Transport Processes`.
+
+## Can you find evidence, ie. publications, to support some of the results that you see?
+
+Not conclusively. Although there is always correlative evidence, especially in a field so researched as breast cancer, I do not believe the evidence is substantial enough to really say anything at this point. The network outcomes are too generic for any conclusions to be drawn from this.
+
+### How does the evidence support your result?
+
+I struggled to find evidence to support these results since they are so generic.
+
+# Detailed View of Results
+
+I chose to analyze the three significantly differentially expressed genes in the ER over-expression model: *ANXA8*, *MKX*, and *CD207*.
+
+I found a network containing both *ANXA8* and *CD207* under the epidermis development GO biological process.
+
+![Figure 16: Network for epidermis development which includes both ANXA8 and CD207; two of the three significant genes in ER over-expression. Pulled by using the STITCH protein query on the respective genes of interest on Cytoscape.](/home/rstudio/projects/figures/extra.png)
+
+They interact through hsa-mir-205, which is a micro RNA. According to its associated gene card [@mirna], it is associated with squamous cell carcinoma in the head and neck. This is an interesting association, and not far off from breast cancer, although a stretch for sure.
+
+Looking further into squamous breast cancerous tissues brought me to this String network.
+
+![Figure 17: String Network for squamous carcinoma in breast tissue. Pulled by using the STITCH disease query on squamous carcinoma.](/home/rstudio/projects/figures/sqa.png)
+
+Notably, *ERBB2* is present in yellow. This is the definition of expression of *HER2*, and so its relation to squamous carcinoma in breast cancerous tissue is very interesting. Additionally, we see BRCA1, a classic, and MUC1, which was in our aggregate model design.
+
+# Associated Journal Entry
+
+My associated journal entry wiki link for this assignment is [here](https://github.com/bcb420-2025/Annabella_Bregazzi/wiki/Assignment-3).
+
+# Acknowledgments
+
+This paper makes use of packages `knitr` [@knitr2015], `BiocManager` [@biocmanager], `GEOquery` [@R-GEOquery], `kableExtra` [@kableextra], `edgeR` [@R-edgeR], `limma` [@limma2015], `ComplexHeatmap` [@complexheatmap], `circlize` [@circlize], `gprofiler2` [@gprofiler2], `GSA` [@gsa], `rcurl` [@rcurl], `ggplot2` [@R-ggplot2], `grid` [@grid], `gridExtra` [@gridExtra], `png` [@png], `RCy3` [@rcy3], & `httr` [@httr].
+
+# Bibliography
